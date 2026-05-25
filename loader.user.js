@@ -8,6 +8,8 @@
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @connect      raw.githubusercontent.com
+// @updateURL    https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
+// @downloadURL  https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
 // ==/UserScript==
 
 // loader install link
