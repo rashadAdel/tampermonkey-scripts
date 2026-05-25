@@ -70,9 +70,7 @@
     for (const id of ids) {
       const trimmed = id.trim();
       if (!trimmed) continue;
-      console.log(`Tampermonkey: جاري البحث عن ${trimmed}...`);
       await findOrderPromise(trimmed);
-      console.log(`Tampermonkey: اكتمل البحث عن ${trimmed}`);
     }
     console.log("Tampermonkey: تم الانتهاء من البحث عن جميع الـ IDs.");
   }
