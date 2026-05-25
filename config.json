@@ -1,0 +1,6 @@
+[
+  {
+    "match": "https://system.greenlineco.com/courier-sheet*",
+    "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/greenline.js"
+  }
+]
