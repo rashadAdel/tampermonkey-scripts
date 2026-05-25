@@ -23,50 +23,57 @@
     return false;
   }
 
-  // انتظر حتى يكتمل تحديث الجدول
-  function waitForTableUpdate(timeout = 5000) {
+  // wrapper لـ findOrders يحولها لـ Promise
+  function findOrderPromise(orderId) {
     return new Promise((resolve) => {
-      const timer = setTimeout(resolve, timeout); // fallback لو مفيش draw
-
-      if ($.fn.DataTable.isDataTable("#orders-list")) {
-        const table = $("#orders-list").DataTable();
-        table.one("draw", function () {
-          clearTimeout(timer);
-          resolve();
-        });
+      if (!orderId || selectedIds.includes(orderId)) {
+        resolve();
+        return;
       }
+
+      var xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+          var order = this.responseText;
+          if (
+            order == "No such order exists" ||
+            order == "Order id is invalid"
+          ) {
+            document.getElementById("orderError").textContent = order;
+            document.getElementById("orderError").style.display = "block";
+          } else if (isJson(order)) {
+            document.getElementById("orderError").style.display = "none";
+            order = JSON.parse(order);
+            var table = $("#orders-list").DataTable();
+            table.row.add(order).draw();
+            document.getElementById("orderId").value = "";
+            selectedIds.push(orderId);
+          } else {
+            document.getElementById("orderError").textContent =
+              "Something went wrong please try again";
+            document.getElementById("orderError").style.display = "block";
+          }
+          resolve();
+        }
+      };
+      xhttp.open("POST", "app-assets/php/courierSheet.php", true);
+      xhttp.setRequestHeader(
+        "Content-type",
+        "application/x-www-form-urlencoded",
+      );
+      xhttp.send("orderId=" + orderId);
     });
   }
 
   // دالة البحث عن قائمة IDs واحد واحد مع انتظار اكتمال كل عملية
   async function findOrdersSequentially(ids) {
-    const input = document.getElementById("orderId");
-    if (!input) {
-      console.error("حقل orderId مش موجود.");
-      return;
-    }
-    if (typeof findOrders !== "function") {
-      console.error("دالة findOrders غير معرفة في النطاق الحالي.");
-      return;
-    }
-
     for (const id of ids) {
       const trimmed = id.trim();
       if (!trimmed) continue;
-
       console.log(`Tampermonkey: جاري البحث عن ${trimmed}...`);
-      input.value = trimmed;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-
-      // سجّل الانتظار قبل استدعاء findOrders عشان متفوتش الحدث
-      const waitPromise = waitForTableUpdate();
-      findOrders();
-      await waitPromise;
-
+      await findOrderPromise(trimmed);
       console.log(`Tampermonkey: اكتمل البحث عن ${trimmed}`);
     }
-
     console.log("Tampermonkey: تم الانتهاء من البحث عن جميع الـ IDs.");
   }
 
