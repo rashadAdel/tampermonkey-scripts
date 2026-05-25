@@ -8,22 +8,42 @@
     const textarea = document.createElement("textarea");
     textarea.id = "multiline-orders";
     textarea.className = input.className;
-    textarea.placeholder = "Order Id (سطر لكل أوردر)";
-    textarea.rows = 4;
+    textarea.placeholder = "Order Id\nسطر لكل أوردر";
+    textarea.rows = 5;
     textarea.style.resize = "vertical";
-    textarea.style.width = input.offsetWidth + "px";
+    textarea.style.width = "100%";
+    textarea.style.minHeight = "100px";
+    textarea.style.lineHeight = "1.8";
+    textarea.style.padding = "6px 10px";
+    textarea.style.fontSize = "14px";
+    textarea.style.whiteSpace = "pre";
+    textarea.style.overflowWrap = "normal";
+    textarea.style.overflowX = "auto";
 
     input.replaceWith(textarea);
 
     textarea.addEventListener("input", function () {
       processOrders(textarea.value);
     });
+
+    // تنضيف الـ paste من أي spaces أو حروف غريبة
+    textarea.addEventListener("paste", function (e) {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData("text");
+      const cleaned = pasted
+        .split(/[\r\n]+/) // split بأي نوع newline
+        .map((o) => o.replace(/\s+/g, "").trim()) // شيل كل spaces جوا الرقم
+        .filter((o) => o !== "")
+        .join("\n");
+      textarea.value = cleaned;
+      processOrders(cleaned);
+    });
   }
 
   function processOrders(value) {
     const orders = value
-      .split("\n")
-      .map((o) => o.trim())
+      .split(/[\r\n]+/)
+      .map((o) => o.replace(/\s+/g, "").trim())
       .filter((o) => o !== "");
 
     const table = $("#orders-list").DataTable();
