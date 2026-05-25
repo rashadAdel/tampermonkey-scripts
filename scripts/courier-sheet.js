@@ -7,6 +7,7 @@
       if (e.key === "Enter") {
         e.preventDefault();
         findOrders();
+        alert("Order ID: " + input.value);
       }
     });
   }
