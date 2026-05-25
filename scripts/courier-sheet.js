@@ -8,7 +8,6 @@
       table.settings()[0].aaSorting = [];
       table.context[0].aaSorting = [];
       table.order([]).draw(false);
-
       var originalDraw = table.draw;
       table.draw = function (userSettings) {
         if (userSettings === undefined || userSettings === true) {
@@ -16,7 +15,6 @@
         }
         return originalDraw.apply(this, arguments);
       };
-
       console.log(
         "Tampermonkey: تم ترويض الجدول بنجاح وإلغاء الترتيب التلقائي!",
       );
@@ -25,7 +23,22 @@
     return false;
   }
 
-  // دالة البحث عن قائمة IDs واحد واحد مع تأخير بينهم
+  // انتظر حتى يكتمل تحديث الجدول
+  function waitForTableUpdate(timeout = 5000) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, timeout); // fallback لو مفيش draw
+
+      if ($.fn.DataTable.isDataTable("#orders-list")) {
+        const table = $("#orders-list").DataTable();
+        table.one("draw", function () {
+          clearTimeout(timer);
+          resolve();
+        });
+      }
+    });
+  }
+
+  // دالة البحث عن قائمة IDs واحد واحد مع انتظار اكتمال كل عملية
   async function findOrdersSequentially(ids) {
     const input = document.getElementById("orderId");
     if (!input) {
@@ -43,15 +56,15 @@
 
       console.log(`Tampermonkey: جاري البحث عن ${trimmed}...`);
       input.value = trimmed;
-
-      // إطلاق event علشان الصفحة تاخد بالها من التغيير لو بتستمع
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
 
+      // سجّل الانتظار قبل استدعاء findOrders عشان متفوتش الحدث
+      const waitPromise = waitForTableUpdate();
       findOrders();
+      await waitPromise;
 
-      // انتظر ثانية بين كل طلب والتاني (عدّلها حسب سرعة السيرفر)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log(`Tampermonkey: اكتمل البحث عن ${trimmed}`);
     }
 
     console.log("Tampermonkey: تم الانتهاء من البحث عن جميع الـ IDs.");
@@ -66,10 +79,8 @@
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
-
         const raw = input.value || "";
         const ids = raw.split(/\s+/).filter((id) => id.trim() !== "");
-
         if (ids.length === 0) return;
 
         if (ids.length === 1) {
