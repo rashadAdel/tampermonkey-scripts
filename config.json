@@ -2,9 +2,5 @@
   {
     "match": "https://system.greenlineco.com/courier-sheet*",
     "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/courier-sheet.js"
-  },
-  {
-    "match": "https://system.greenlineco.com/orders-list*",
-    "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/orders-list.js"
   }
 ]
