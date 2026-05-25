@@ -1,26 +1,7 @@
 (function () {
   "use strict";
 
-  // ── Fix 1: Override DataTable لإلغاء الـ sorting ──
-  const _addEventListener = EventTarget.prototype.addEventListener;
-  window.addEventListener("load", function () {
-    const origDataTable = $.fn.dataTable;
-    if (typeof $.fn.DataTable === "function") {
-      const orig = $.fn.DataTable;
-      $.fn.DataTable = function (options) {
-        if (options && options.order !== undefined) {
-          options.order = [];
-        }
-        if (options && options.aaSorting !== undefined) {
-          options.aaSorting = [];
-        }
-        return orig.call(this, options);
-      };
-      $.fn.dataTable = $.fn.DataTable;
-    }
-  });
-
-  // ── Fix 2: Enter key على orderId ──
+  // ── Fix 1: Enter key على orderId ──
   function attachEnterListener() {
     const input = document.getElementById("orderId");
     if (!input || input._enterAttached) return;
@@ -33,16 +14,45 @@
     });
   }
 
-  const observer = new MutationObserver(() => {
+  // ── Fix 2: Override findOrders لإلغاء الـ sorting قبل كل إضافة ──
+  window.addEventListener("load", function () {
+    // ننتظر الـ DataTable يتعمل
+    const checkTable = setInterval(() => {
+      if (
+        typeof findOrders === "function" &&
+        $.fn.DataTable.isDataTable("#orders-list")
+      ) {
+        clearInterval(checkTable);
+
+        // نحفظ الـ function الأصلية
+        const _originalFindOrders = window.findOrders;
+
+        // نعمل override
+        window.findOrders = function () {
+          // نوقف الـ sorting مؤقتاً
+          var table = $("#orders-list").DataTable();
+          table.order([]);
+          // نشغل الأصلية
+          _originalFindOrders();
+        };
+
+        // نطبق كمان على الجدول الحالي
+        $("#orders-list").DataTable().order([]).draw();
+      }
+    }, 300);
+
+    // ── Enter listener ──
+    const observer = new MutationObserver(() => {
+      if (document.getElementById("orderId")) {
+        attachEnterListener();
+        observer.disconnect();
+      }
+    });
+
     if (document.getElementById("orderId")) {
       attachEnterListener();
-      observer.disconnect();
+    } else {
+      observer.observe(document.body, { childList: true, subtree: true });
     }
   });
-
-  if (document.getElementById("orderId")) {
-    attachEnterListener();
-  } else {
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
 })();
