@@ -1,12 +1,30 @@
 (function () {
   "use strict";
 
+  // ── Fix 1: Override DataTable لإلغاء الـ sorting ──
+  const _addEventListener = EventTarget.prototype.addEventListener;
+  window.addEventListener("load", function () {
+    const origDataTable = $.fn.dataTable;
+    if (typeof $.fn.DataTable === "function") {
+      const orig = $.fn.DataTable;
+      $.fn.DataTable = function (options) {
+        if (options && options.order !== undefined) {
+          options.order = [];
+        }
+        if (options && options.aaSorting !== undefined) {
+          options.aaSorting = [];
+        }
+        return orig.call(this, options);
+      };
+      $.fn.dataTable = $.fn.DataTable;
+    }
+  });
+
+  // ── Fix 2: Enter key على orderId ──
   function attachEnterListener() {
     const input = document.getElementById("orderId");
-    if (!input || input.dataset.tmAttached) return;
-
-    input.dataset.tmAttached = "true";
-
+    if (!input || input._enterAttached) return;
+    input._enterAttached = true;
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -15,48 +33,16 @@
     });
   }
 
-  function disableTableSorting() {
-    if (typeof window.jQuery === "undefined" || !jQuery.fn.DataTable) {
-      return false;
-    }
-
-    const tableElement = document.getElementById("orders-list");
-    if (!tableElement) return false;
-
-    // Wait until DataTable is initialized
-    if (!jQuery.fn.DataTable.isDataTable("#orders-list")) {
-      return false;
-    }
-
-    const table = jQuery("#orders-list").DataTable();
-
-    // Disable sorting feature
-    table.settings()[0].oFeatures.bSort = false;
-
-    // Remove active ordering
-    table.order([]);
-
-    // Redraw without sorting
-    table.draw(false);
-
-    console.log("Sorting disabled");
-
-    return true;
-  }
-
-  function init() {
-    attachEnterListener();
-    disableTableSorting();
-  }
-
   const observer = new MutationObserver(() => {
-    init();
+    if (document.getElementById("orderId")) {
+      attachEnterListener();
+      observer.disconnect();
+    }
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-
-  init();
+  if (document.getElementById("orderId")) {
+    attachEnterListener();
+  } else {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 })();
