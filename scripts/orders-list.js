@@ -1,6 +1,10 @@
 (function () {
   "use strict";
 
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   function replaceWithTextarea() {
     const input = document.querySelector("input.orderId");
     if (!input || document.getElementById("multiline-orders")) return;
@@ -26,13 +30,12 @@
       processOrders(textarea.value);
     });
 
-    // تنضيف الـ paste من أي spaces أو حروف غريبة
     textarea.addEventListener("paste", function (e) {
       e.preventDefault();
       const pasted = (e.clipboardData || window.clipboardData).getData("text");
       const cleaned = pasted
-        .split(/[\r\n]+/) // split بأي نوع newline
-        .map((o) => o.replace(/\s+/g, "").trim()) // شيل كل spaces جوا الرقم
+        .split(/[\r\n]+/)
+        .map((o) => o.replace(/\s+/g, "").trim())
         .filter((o) => o !== "")
         .join("\n");
       textarea.value = cleaned;
@@ -51,9 +54,9 @@
     if (orders.length === 0) {
       table.column(1).search("").draw();
     } else if (orders.length === 1) {
-      table.column(1).search(orders[0]).draw();
+      table.column(1).search(orders[0], true, false).draw();
     } else {
-      const searchTerm = orders.join("|");
+      const searchTerm = orders.map(escapeRegex).join("|");
       table.column(1).search(searchTerm, true, false).draw();
     }
   }
