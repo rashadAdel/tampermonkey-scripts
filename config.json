@@ -2,5 +2,9 @@
   {
     "match": "https://system.greenlineco.com/courier-sheet*",
     "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/courier-sheet.js"
+  },
+  {
+    "match": "https://system.greenlineco.com/bulk-status*",
+    "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/bulk-status.js"
   }
 ]
