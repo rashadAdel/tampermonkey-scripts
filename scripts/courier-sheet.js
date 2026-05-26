@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   window.__state = window.__state || {
     selectedOrders: [],
   };
