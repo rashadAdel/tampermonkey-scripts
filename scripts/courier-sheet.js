@@ -108,7 +108,7 @@
       params.append("columns[10][searchable]", "true");
       params.append("columns[10][search][value]", courierName);
       params.append("start", "0");
-      params.append("length", "5000000");
+      params.append("length", "100");
       params.append("columns[6][data]", "6");
       params.append("columns[6][search][value]", phone);
       params.append("columns[6][searchable]", "true");
