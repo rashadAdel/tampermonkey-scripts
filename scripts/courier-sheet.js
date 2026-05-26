@@ -3,11 +3,9 @@
 
   window.__state = window.__state || {
     selectedOrders: [],
-    selectedIds: [],
   };
 
   window.selectedOrders = window.__state.selectedOrders;
-  window.selectedIds = window.__state.selectedIds;
 
   function addExternalCourierSection() {
     const assignSection = document
@@ -212,20 +210,17 @@
           );
         }
 
-        if (Array.isArray(window.selectedOrders)) {
-          const getId = (order) =>
-            order?.[0] ?? order?.id ?? order?.orderId ?? order?.[1];
-
-          window.selectedOrders = window.selectedOrders.filter(
-            (order) =>
-              String(getId(order))
-                .trim()
-                .replace(/\u200e|\u200f/g, "") !==
-              String(orderId)
-                .trim()
-                .replace(/\u200e|\u200f/g, ""),
-          );
-        }
+        // ✅ splice بدل filter عشان نعدل نفس الـ array ونحافظ على الـ reference
+        const idx = window.selectedOrders.findIndex(
+          (order) =>
+            String(order[0])
+              .trim()
+              .replace(/\u200e|\u200f/g, "") ===
+            String(orderId)
+              .trim()
+              .replace(/\u200e|\u200f/g, ""),
+        );
+        if (idx !== -1) window.selectedOrders.splice(idx, 1);
 
         row.remove().draw(false);
       });
