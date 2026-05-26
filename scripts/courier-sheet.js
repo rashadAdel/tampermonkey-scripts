@@ -29,7 +29,7 @@
                         style="width:100%;"
                     >
                         <option value="">Please select..</option>
-                        <option value="jt">J&T</option>
+                        <option value="871">J&T</option>
                     </select>
                 </div>
 
@@ -56,14 +56,16 @@
     document
       .getElementById("sendExternalCourierBtn")
       .addEventListener("click", function () {
-        const courier = document.getElementById("externalCourierName").value;
-
-        if (!courier) {
+        const courierElement = document.getElementById("externalCourierName");
+        const courier_id = courierElement.value;
+        const courierName =
+          courierElement.options[courierElement.selectedIndex].text;
+        if (!courier_id) {
           alert("Please select external courier");
           return;
         }
 
-        console.log("Send orders to:", courier);
+        console.log("Send orders to:", courierName);
 
         // TODO:
         // Send selected orders to external courier API
@@ -195,8 +197,8 @@
   });
 
   addExternalCourierSection();
-
-  var initialFixed = fixExistingTable();
+  fixExistingTable();
   attachEnterListener();
+
   observer.observe(document.body, { childList: true, subtree: true });
 })();
