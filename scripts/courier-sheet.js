@@ -223,6 +223,7 @@
           return;
         }
         $("#courierName").val(courier_id).trigger("change");
+        // TODO: send to system and google sheets and assign to courier
         console.log("Send orders to:", courierName);
       });
   }
@@ -248,7 +249,6 @@
     return false;
   }
 
-  // تعديل: دمج الـ await لانتظار دالة advance_search الجديدة
   function findOrderPromise(orderId) {
     return new Promise((resolve) => {
       if (!orderId || selectedIds.includes(orderId)) {
@@ -258,7 +258,6 @@
 
       var xhttp = new XMLHttpRequest();
       xhttp.onreadystatechange = async function () {
-        // إضافة async هنا
         if (this.readyState == 4 && this.status == 200) {
           var order = this.responseText;
           if (
@@ -274,19 +273,6 @@
             table.row.add(order).draw();
             document.getElementById("orderId").value = "";
             selectedIds.push(orderId);
-
-            try {
-              // تعديل جوهري: استخدام await لانتظار النتيجة بشكل صحيح
-              const searchResult = await advance_search({
-                id: orderId,
-                asJson: true,
-              });
-              if (searchResult && searchResult.length > 0) {
-                window.selectedOrders.push(searchResult[0]);
-              }
-            } catch (err) {
-              console.error("Error in advance_search:", err);
-            }
           } else {
             document.getElementById("orderError").textContent =
               "Something went wrong please try again";
