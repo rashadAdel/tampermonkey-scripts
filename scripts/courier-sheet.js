@@ -64,7 +64,7 @@
     return result;
   }
 
-  // الدالة الرئيسية للبحث المتقدم
+  // تعديل: جعل الدالة ترجع Promise لضمان انتظار البيانات
   function advance_search({
     id = "",
     courierName = "",
@@ -73,102 +73,113 @@
     shipper = "",
     asJson = true,
   }) {
-    // تجهيز وتنظيف المتغيرات بنفس منطق الـ Apps Script
-    id = ("" + id).trim();
-    courierName = ("" + courierName).toLowerCase().trim();
-    shipper = ("" + shipper).toLowerCase().trim();
-    status =
-      courierName !== "" && status === ""
-        ? "outfordelivery"
-        : ("" + status).toLowerCase().trim();
-    phone = ("" + phone).replace(/\D+/g, "").slice(-10);
+    return new Promise((resolve, reject) => {
+      id = ("" + id).trim();
+      courierName = ("" + courierName).toLowerCase().trim();
+      shipper = ("" + shipper).toLowerCase().trim();
+      status =
+        courierName !== "" && status === ""
+          ? "outfordelivery"
+          : ("" + status).toLowerCase().trim();
+      phone = ("" + phone).replace(/\D+/g, "").slice(-10);
 
-    const xhttp = new XMLHttpRequest();
+      const xhttp = new XMLHttpRequest();
 
-    // بناء الـ URLSearchParams بالترتيب والبنود المطلوبة كاملة
-    const params = new URLSearchParams();
-    params.append("columns[0][orderable]", "false");
-    params.append("columns[1][data]", "1");
-    params.append("columns[1][name]", "");
-    params.append("columns[1][searchable]", "true");
-    params.append("columns[1][orderable]", "true");
-    params.append("columns[1][search][value]", id);
-    params.append("columns[1][search][regex]", "false");
-    params.append("[search][regex]", "false");
-    params.append("columns[2][search][regex]", "false");
-    params.append("columns[3][search][regex]", "false");
-    params.append("columns[4][search][regex]", "false");
-    params.append("columns[5][search][regex]", "false");
-    params.append("columns[6][search][regex]", "false");
-    params.append("columns[7][search][regex]", "false");
-    params.append("columns[8][searchable]", "true");
-    params.append("columns[9][data]", "9");
-    params.append("columns[9][searchable]", "true");
-    params.append("columns[9][search][value]", status);
-    params.append("columns[10][data]", "10");
-    params.append("columns[10][searchable]", "true");
-    params.append("columns[10][search][value]", courierName);
-    params.append("start", "0");
-    params.append("length", "5000000");
-    params.append("columns[6][data]", "6");
-    params.append("columns[6][search][value]", phone);
-    params.append("columns[6][searchable]", "true");
-    params.append("columns[4][data]", "4");
-    params.append("columns[4][searchable]", "true");
-    params.append("columns[4][orderable]", "true");
-    params.append("columns[4][search][value]", shipper);
-    params.append("columns[4][search][regex]", "false");
+      const params = new URLSearchParams();
+      params.append("columns[0][orderable]", "false");
+      params.append("columns[1][data]", "1");
+      params.append("columns[1][name]", "");
+      params.append("columns[1][searchable]", "true");
+      params.append("columns[1][orderable]", "true");
+      params.append("columns[1][search][value]", id);
+      params.append("columns[1][search][regex]", "false");
+      params.append("[search][regex]", "false");
+      params.append("columns[2][search][regex]", "false");
+      params.append("columns[3][search][regex]", "false");
+      params.append("columns[4][search][regex]", "false");
+      params.append("columns[5][search][regex]", "false");
+      params.append("columns[6][search][regex]", "false");
+      params.append("columns[7][search][regex]", "false");
+      params.append("columns[8][searchable]", "true");
+      params.append("columns[9][data]", "9");
+      params.append("columns[9][searchable]", "true");
+      params.append("columns[9][search][value]", status);
+      params.append("columns[10][data]", "10");
+      params.append("columns[10][searchable]", "true");
+      params.append("columns[10][search][value]", courierName);
+      params.append("start", "0");
+      params.append("length", "5000000");
+      params.append("columns[6][data]", "6");
+      params.append("columns[6][search][value]", phone);
+      params.append("columns[6][searchable]", "true");
+      params.append("columns[4][data]", "4");
+      params.append("columns[4][searchable]", "true");
+      params.append("columns[4][orderable]", "true");
+      params.append("columns[4][search][value]", shipper);
+      params.append("columns[4][search][regex]", "false");
 
-    xhttp.open("GET", "/app-assets/php/orders.php?" + params.toString(), true);
+      xhttp.open(
+        "GET",
+        "/app-assets/php/orders.php?" + params.toString(),
+        true,
+      );
 
-    xhttp.onreadystatechange = function () {
-      if (xhttp.readyState === 4 && xhttp.status === 200) {
-        const rawData = JSON.parse(xhttp.responseText)["data"];
-        const orders = [];
+      xhttp.onreadystatechange = function () {
+        if (xhttp.readyState === 4) {
+          if (xhttp.status === 200) {
+            try {
+              const rawData = JSON.parse(xhttp.responseText)["data"];
+              const orders = [];
 
-        // معالجة البيانات وعمل الـ Filtering والـ Normalize
-        rawData.map((jsonOrder) => {
-          var order = convertJsonToOrder(jsonOrder);
+              rawData.map((jsonOrder) => {
+                var order = convertJsonToOrder(jsonOrder);
 
-          if (status !== "") {
-            if (status !== order.status.toLowerCase()) {
-              return;
+                if (status !== "") {
+                  if (status !== order.status.toLowerCase()) {
+                    return;
+                  }
+                }
+                orders.push(order);
+              });
+
+              if (asJson) {
+                console.log("Normalized Orders (JSON):", orders);
+                resolve(orders); // إرجاع النتيجة للـ Promise
+                return;
+              }
+
+              var result = orders.map((order) => {
+                return [
+                  order.id,
+                  order.shipper,
+                  order.consignee,
+                  order.phone,
+                  order.totalAmount,
+                  order.status,
+                  order.courier,
+                  order.shipping_fees,
+                  order.date_in,
+                  order.address,
+                  order.gov,
+                  order.type,
+                  order.description,
+                  order.notes,
+                ];
+              });
+
+              console.log("Normalized Orders (Array):", result);
+              resolve(result); // إرجاع النتيجة للـ Promise
+            } catch (e) {
+              reject(e);
             }
+          } else {
+            reject(new Error("Request failed with status " + xhttp.status));
           }
-          orders.push(order);
-        });
-
-        // طباعة النتيجة النهائية بناءً على خيار asJson
-        if (asJson) {
-          console.log("Normalized Orders (JSON):", orders);
-          return orders;
         }
+      };
 
-        var result = orders.map((order) => {
-          return [
-            order.id,
-            order.shipper,
-            order.consignee,
-            order.phone,
-            order.totalAmount,
-            order.status,
-            order.courier,
-            order.shipping_fees,
-            order.date_in,
-            order.address,
-            order.gov,
-            order.type,
-            order.description,
-            order.notes,
-          ];
-        });
-
-        console.log("Normalized Orders (Array):", result);
-        return result;
-      }
-    };
-
-    xhttp.send();
+      xhttp.send();
+    });
   }
 
   function addExternalCourierSection() {
@@ -177,39 +188,20 @@
       ?.closest(".card-body");
 
     if (!assignSection) return;
-
     if (document.getElementById("externalCourierName")) return;
 
     const wrapper = document.createElement("div");
-
     wrapper.className = "card-body pl-3 pt-1 pr-3 pb-3";
-
     wrapper.innerHTML = `
             <div class="row align-items-center">
-
-                <label class="col-sm-3 col-form-label text-sm-end">
-                    External Courier
-                </label>
-
+                <label class="col-sm-3 col-form-label text-sm-end">External Courier</label>
                 <div class="col-sm-6">
-                    <select
-                        id="externalCourierName"
-                        class="form-control select2"
-                        style="width:100%;"
-                    >
+                    <select id="externalCourierName" class="form-control select2" style="width:100%;">
                         <option value="">Please select..</option>
                         <option value="871">J&T</option>
                     </select>
                 </div>
-
-                <button
-                    class="col-sm-3 btn btn-outline-success btn-sm"
-                    id="sendExternalCourierBtn"
-                    type="button"
-                >
-                    Send
-                </button>
-
+                <button class="col-sm-3 btn btn-outline-success btn-sm" id="sendExternalCourierBtn" type="button">Send</button>
             </div>
         `;
 
@@ -232,9 +224,6 @@
         }
         $("#courierName").val(courier_id).trigger("change");
         console.log("Send orders to:", courierName);
-
-        // TODO:
-        // Send selected orders to external courier API
       });
   }
 
@@ -259,6 +248,7 @@
     return false;
   }
 
+  // تعديل: دمج الـ await لانتظار دالة advance_search الجديدة
   function findOrderPromise(orderId) {
     return new Promise((resolve) => {
       if (!orderId || selectedIds.includes(orderId)) {
@@ -267,7 +257,8 @@
       }
 
       var xhttp = new XMLHttpRequest();
-      xhttp.onreadystatechange = function () {
+      xhttp.onreadystatechange = async function () {
+        // إضافة async هنا
         if (this.readyState == 4 && this.status == 200) {
           var order = this.responseText;
           if (
@@ -283,8 +274,19 @@
             table.row.add(order).draw();
             document.getElementById("orderId").value = "";
             selectedIds.push(orderId);
-            const orderData = advance_search({ id: orderId, asJson: true })[0];
-            window.selectedOrders.push(orderData);
+
+            try {
+              // تعديل جوهري: استخدام await لانتظار النتيجة بشكل صحيح
+              const searchResult = await advance_search({
+                id: orderId,
+                asJson: true,
+              });
+              if (searchResult && searchResult.length > 0) {
+                window.selectedOrders.push(searchResult[0]);
+              }
+            } catch (err) {
+              console.error("Error in advance_search:", err);
+            }
           } else {
             document.getElementById("orderError").textContent =
               "Something went wrong please try again";
@@ -354,33 +356,48 @@
       .off("click.tmRemove")
       .on("click.tmRemove", ".removeButton", function () {
         const tr = $(this).closest("tr");
-
         const table = $("#orders-list").DataTable();
         const row = table.row(tr);
 
-        const orderId = tr.find("td:first").text().trim();
+        // جلب الـ ID من العمود الأول وتنظيفه تماماً من الرموز المخفية والمسافات
+        const orderId = tr
+          .find("td:first")
+          .text()
+          .trim()
+          .replace(/[\u200e\u200f\s]/g, "");
 
         if (typeof selectedIds !== "undefined" && Array.isArray(selectedIds)) {
           selectedIds = selectedIds.filter(
-            (id) => String(id).trim() !== String(orderId).trim(),
+            (id) =>
+              String(id)
+                .trim()
+                .replace(/[\u200e\u200f\s]/g, "") !== orderId,
           );
         }
 
-        const idx = window.selectedOrders.findIndex(
-          (order) =>
-            String(order[0])
-              .trim()
-              .replace(/\u200e|\u200f/g, "") ===
-            String(orderId)
-              .trim()
-              .replace(/\u200e|\u200f/g, ""),
-        );
-        if (idx !== -1) window.selectedOrders.splice(idx, 1);
+        // البحث في المصفوفة وحذفه بناءً على الـ ID المنظف
+        const idx = window.selectedOrders.findIndex((order) => {
+          if (!order || !order.id) return false;
+          const savedId = String(order.id)
+            .trim()
+            .replace(/[\u200e\u200f\s]/g, "");
+          return savedId === orderId;
+        });
+
+        if (idx !== -1) {
+          window.selectedOrders.splice(idx, 1);
+          console.log(
+            `Tampermonkey: تم حذف الطلب رقم ${orderId} من المصفوفة بنجاح.`,
+          );
+        } else {
+          console.warn(
+            `Tampermonkey: لم يتم العثور على الطلب رقم ${orderId} في المصفوفة لحذفه.`,
+          );
+        }
 
         row.remove().draw(false);
       });
   }
-
   addExternalCourierSection();
   fixExistingTable();
   attachEnterListener();
