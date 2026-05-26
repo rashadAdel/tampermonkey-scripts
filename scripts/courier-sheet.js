@@ -1,11 +1,8 @@
+window.__state = window.__state || { selectedOrders: [] };
+window.selectedOrders = window.__state.selectedOrders;
+
 (function () {
   "use strict";
-
-  window.__state = window.__state || {
-    selectedOrders: [],
-  };
-
-  window.selectedOrders = window.__state.selectedOrders;
 
   function addExternalCourierSection() {
     const assignSection = document
