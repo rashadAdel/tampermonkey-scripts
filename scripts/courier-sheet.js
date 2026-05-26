@@ -3,6 +3,179 @@
 
   window.selectedOrders = window.selectedOrders || [];
 
+  // دالة تنظيف الـ HTML الممررة
+  function extractTextFromHtml(html) {
+    if (typeof html !== "string") return html;
+    return html.replace(/<[^>]*>/g, "");
+  }
+
+  // دالة تحويل وعمل normalize لبيانات الطلب
+  function convertJsonToOrder(json) {
+    var result = {};
+    result.id = (("" + json[1]).match(/<span class="orderId\s*">(\d+)/) || [
+      ,
+      "0",
+    ])[1];
+    result.history = (("" + json[1]).match(
+      /href="view-order-history\.php\?([^"]+)"/,
+    ) || [, ""])[1];
+    result.shipper = (("" + json[4]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.consignee = (("" + json[5]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.phone =
+      (("" + json[6]).match(/<small class="text-muted">(.*?)<\/small>/) || [
+        ,
+        "",
+      ])[1]
+        .replace(/\D+/g, "")
+        .slice(-10) || "";
+    result.totalAmount = (("" + json[8]).match(/(-?\d+)/) || [, "0"])[1];
+    result.status = (("" + json[9]).match(/badge-pill">(.*?)</) || [
+      ,
+      "",
+    ])[1].trim();
+    result.courier = (("" + json[10]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.shipping_fees = (("" + json[11]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.date_in = (("" + json[12]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.address = (("" + json[13]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.gov = (("" + json[14]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.type = (("" + json[16]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    result.description = (("" + json[17]).match(
+      /<small class="text-muted">\s*(.*?)\s*<\/small>/s,
+    ) || [, ""])[1].trim();
+    result.notes = (("" + json[18]).match(
+      /<small class="text-muted">(.*?)<\/small>/,
+    ) || [, ""])[1].trim();
+    return result;
+  }
+
+  // الدالة الرئيسية للبحث المتقدم
+  function advance_search({
+    id = "",
+    courierName = "",
+    status = "",
+    phone = "",
+    shipper = "",
+    asJson = true,
+  }) {
+    // تجهيز وتنظيف المتغيرات بنفس منطق الـ Apps Script
+    id = ("" + id).trim();
+    courierName = ("" + courierName).toLowerCase().trim();
+    shipper = ("" + shipper).toLowerCase().trim();
+    status =
+      courierName !== "" && status === ""
+        ? "outfordelivery"
+        : ("" + status).toLowerCase().trim();
+    phone = ("" + phone).replace(/\D+/g, "").slice(-10);
+
+    const xhttp = new XMLHttpRequest();
+
+    // بناء الـ URLSearchParams بالترتيب والبنود المطلوبة كاملة
+    const params = new URLSearchParams();
+    params.append("columns[0][orderable]", "false");
+    params.append("columns[1][data]", "1");
+    params.append("columns[1][name]", "");
+    params.append("columns[1][searchable]", "true");
+    params.append("columns[1][orderable]", "true");
+    params.append("columns[1][search][value]", id);
+    params.append("columns[1][search][regex]", "false");
+    params.append("[search][regex]", "false");
+    params.append("columns[2][search][regex]", "false");
+    params.append("columns[3][search][regex]", "false");
+    params.append("columns[4][search][regex]", "false");
+    params.append("columns[5][search][regex]", "false");
+    params.append("columns[6][search][regex]", "false");
+    params.append("columns[7][search][regex]", "false");
+    params.append("columns[8][searchable]", "true");
+    params.append("columns[9][data]", "9");
+    params.append("columns[9][searchable]", "true");
+    params.append("columns[9][search][value]", status);
+    params.append("columns[10][data]", "10");
+    params.append("columns[10][searchable]", "true");
+    params.append("columns[10][search][value]", courierName);
+    params.append("start", "0");
+    params.append("length", "5000000");
+    params.append("columns[6][data]", "6");
+    params.append("columns[6][search][value]", phone);
+    params.append("columns[6][searchable]", "true");
+    params.append("columns[4][data]", "4");
+    params.append("columns[4][searchable]", "true");
+    params.append("columns[4][orderable]", "true");
+    params.append("columns[4][search][value]", shipper);
+    params.append("columns[4][search][regex]", "false");
+
+    xhttp.open(
+      "GET",
+      "https://system.greenlineco.com//app-assets/php/orders.php?" +
+        params.toString(),
+      true,
+    );
+
+    xhttp.onreadystatechange = function () {
+      if (xhttp.readyState === 4 && xhttp.status === 200) {
+        const rawData = JSON.parse(xhttp.responseText)["data"];
+        const orders = [];
+
+        // معالجة البيانات وعمل الـ Filtering والـ Normalize
+        rawData.map((jsonOrder) => {
+          var order = convertJsonToOrder(jsonOrder);
+
+          if (status !== "") {
+            if (status !== order.status.toLowerCase()) {
+              return;
+            }
+          }
+          orders.push(order);
+        });
+
+        // طباعة النتيجة النهائية بناءً على خيار asJson
+        if (asJson) {
+          console.log("Normalized Orders (JSON):", orders);
+          return orders;
+        }
+
+        var result = orders.map((order) => {
+          return [
+            order.id,
+            order.shipper,
+            order.consignee,
+            order.phone,
+            order.totalAmount,
+            order.status,
+            order.courier,
+            order.shipping_fees,
+            order.date_in,
+            order.address,
+            order.gov,
+            order.type,
+            order.description,
+            order.notes,
+          ];
+        });
+
+        console.log("Normalized Orders (Array):", result);
+        return result;
+      }
+    };
+
+    xhttp.send();
+  }
+
   function addExternalCourierSection() {
     const assignSection = document
       .querySelector('button[onclick="assignCoureir();"]')
@@ -115,7 +288,8 @@
             table.row.add(order).draw();
             document.getElementById("orderId").value = "";
             selectedIds.push(orderId);
-            window.selectedOrders.push(order);
+            const orderData = advance_search({ id: orderId, asJson: true })[0];
+            window.selectedOrders.push(orderData);
           } else {
             document.getElementById("orderError").textContent =
               "Something went wrong please try again";
