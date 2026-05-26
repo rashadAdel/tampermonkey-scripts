@@ -197,6 +197,9 @@
   });
 
   function fixRemoveButton() {
+    if (window.__tm_remove_fixed) return;
+    window.__tm_remove_fixed = true;
+
     $("#orders-list")
       .off("click.tmRemove")
       .on("click.tmRemove", ".removeButton", function () {
@@ -205,17 +208,14 @@
         const table = $("#orders-list").DataTable();
         const row = table.row(tr);
 
-        // ✔️ First TD = real orderId (1947584)
         const orderId = tr.find("td:first").text().trim();
 
-        // ✔️ remove safely from selectedIds
         if (typeof selectedIds !== "undefined" && Array.isArray(selectedIds)) {
           selectedIds = selectedIds.filter(
             (id) => String(id).trim() !== String(orderId).trim(),
           );
         }
 
-        // remove row from DataTable
         row.remove().draw(false);
       });
   }
