@@ -119,12 +119,7 @@
     params.append("columns[4][search][value]", shipper);
     params.append("columns[4][search][regex]", "false");
 
-    xhttp.open(
-      "GET",
-      "https://system.greenlineco.com//app-assets/php/orders.php?" +
-        params.toString(),
-      true,
-    );
+    xhttp.open("GET", "/app-assets/php/orders.php?" + params.toString(), true);
 
     xhttp.onreadystatechange = function () {
       if (xhttp.readyState === 4 && xhttp.status === 200) {
