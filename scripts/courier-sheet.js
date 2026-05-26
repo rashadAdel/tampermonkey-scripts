@@ -1,8 +1,6 @@
 (function () {
   "use strict";
 
-  window.selectedOrders = [];
-
   function addExternalCourierSection() {
     const assignSection = document
       .querySelector('button[onclick="assignCoureir();"]')
