@@ -211,9 +211,19 @@
             (id) => String(id).trim() !== String(orderId).trim(),
           );
         }
+
         if (Array.isArray(window.selectedOrders)) {
+          const getId = (order) =>
+            order?.[0] ?? order?.id ?? order?.orderId ?? order?.[1];
+
           window.selectedOrders = window.selectedOrders.filter(
-            (order) => String(order[0]).trim() !== String(orderId).trim(),
+            (order) =>
+              String(getId(order))
+                .trim()
+                .replace(/\u200e|\u200f/g, "") !==
+              String(orderId)
+                .trim()
+                .replace(/\u200e|\u200f/g, ""),
           );
         }
 
