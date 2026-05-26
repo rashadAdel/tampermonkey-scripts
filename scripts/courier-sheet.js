@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  window.selectedOrders = window.selectedOrders || [];
+
   function addExternalCourierSection() {
     const assignSection = document
       .querySelector('button[onclick="assignCoureir();"]')
@@ -8,7 +10,6 @@
 
     if (!assignSection) return;
 
-    // Prevent duplicate insertion
     if (document.getElementById("externalCourierName")) return;
 
     const wrapper = document.createElement("div");
@@ -44,15 +45,12 @@
             </div>
         `;
 
-    // Insert above current courier assign section
     assignSection.parentNode.insertBefore(wrapper, assignSection);
 
-    // Init select2 if loaded
     if (window.$ && $.fn.select2) {
       $("#externalCourierName").select2();
     }
 
-    // Button click
     document
       .getElementById("sendExternalCourierBtn")
       .addEventListener("click", function () {
@@ -72,7 +70,6 @@
       });
   }
 
-  // دالة لتعديل إعدادات الجدول الأصلي لمنع الترتيب
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
       var table = $("#orders-list").DataTable();
@@ -94,7 +91,6 @@
     return false;
   }
 
-  // wrapper لـ findOrders يحولها لـ Promise
   function findOrderPromise(orderId) {
     return new Promise((resolve) => {
       if (!orderId || selectedIds.includes(orderId)) {
@@ -137,7 +133,6 @@
     });
   }
 
-  // دالة البحث عن قائمة IDs واحد واحد مع انتظار اكتمال كل عملية
   async function findOrdersSequentially(ids) {
     for (const id of ids) {
       const trimmed = id.trim();
@@ -147,7 +142,6 @@
     console.log("Tampermonkey: تم الانتهاء من البحث عن جميع الـ IDs.");
   }
 
-  // دالة ربط زرار الـ Enter بالـ Input مع دعم المسافات
   function attachEnterListener() {
     const input = document.getElementById("orderId");
     if (!input) return;
@@ -167,7 +161,6 @@
     input.dataset.enterAttached = true;
   }
 
-  // مراقبة الـ DOM
   const observer = new MutationObserver(() => {
     addExternalCourierSection();
 
@@ -203,11 +196,17 @@
             (id) => String(id).trim() !== String(orderId).trim(),
           );
         }
-        if (Array.isArray(window.selectedOrders)) {
-          window.selectedOrders = window.selectedOrders.filter(
-            (order) => String(order[0]).trim() !== String(orderId).trim(),
-          );
-        }
+
+        const idx = window.selectedOrders.findIndex(
+          (order) =>
+            String(order[0])
+              .trim()
+              .replace(/\u200e|\u200f/g, "") ===
+            String(orderId)
+              .trim()
+              .replace(/\u200e|\u200f/g, ""),
+        );
+        if (idx !== -1) window.selectedOrders.splice(idx, 1);
 
         row.remove().draw(false);
       });
