@@ -196,9 +196,34 @@
     }
   });
 
+  function fixRemoveButton() {
+    $("#orders-list")
+      .off("click.tmRemove")
+      .on("click.tmRemove", ".removeButton", function () {
+        const tr = $(this).closest("tr");
+
+        const table = $("#orders-list").DataTable();
+        const row = table.row(tr);
+
+        // ✔️ First TD = real orderId (1947584)
+        const orderId = tr.find("td:first").text().trim();
+
+        // ✔️ remove safely from selectedIds
+        if (typeof selectedIds !== "undefined" && Array.isArray(selectedIds)) {
+          selectedIds = selectedIds.filter(
+            (id) => String(id).trim() !== String(orderId).trim(),
+          );
+        }
+
+        // remove row from DataTable
+        row.remove().draw(false);
+      });
+  }
+
   addExternalCourierSection();
   fixExistingTable();
   attachEnterListener();
+  fixRemoveButton();
 
   observer.observe(document.body, { childList: true, subtree: true });
 })();
