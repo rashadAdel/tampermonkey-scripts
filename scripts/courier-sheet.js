@@ -64,7 +64,7 @@
           alert("Please select external courier");
           return;
         }
-
+        $("#courierName").val(courier_id).trigger("change");
         console.log("Send orders to:", courierName);
 
         // TODO:
