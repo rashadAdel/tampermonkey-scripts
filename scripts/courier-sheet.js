@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  window.selectedOrders = [];
+
   function addExternalCourierSection() {
     const assignSection = document
       .querySelector('button[onclick="assignCoureir();"]')
@@ -119,6 +121,7 @@
             table.row.add(order).draw();
             document.getElementById("orderId").value = "";
             selectedIds.push(orderId);
+            window.selectedOrders.push(order);
           } else {
             document.getElementById("orderError").textContent =
               "Something went wrong please try again";
@@ -159,20 +162,7 @@
         const ids = raw.split(/\s+/).filter((id) => id.trim() !== "");
         if (ids.length === 0) return;
 
-        if (ids.length === 1) {
-          // سلوك عادي لو ID واحد بس
-          if (typeof findOrders === "function") {
-            findOrders();
-          } else {
-            console.error("دالة findOrders غير معرفة في النطاق الحالي.");
-          }
-        } else {
-          // لو أكتر من ID، ابدأ اللوب
-          console.log(
-            `Tampermonkey: تم العثور على ${ids.length} IDs، بدء البحث التسلسلي...`,
-          );
-          findOrdersSequentially(ids);
-        }
+        findOrdersSequentially(ids);
       }
     });
 
@@ -213,6 +203,11 @@
         if (typeof selectedIds !== "undefined" && Array.isArray(selectedIds)) {
           selectedIds = selectedIds.filter(
             (id) => String(id).trim() !== String(orderId).trim(),
+          );
+        }
+        if (Array.isArray(window.selectedOrders)) {
+          window.selectedOrders = window.selectedOrders.filter(
+            (order) => String(order[0]).trim() !== String(orderId).trim(),
           );
         }
 
