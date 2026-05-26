@@ -1,6 +1,4 @@
 (function () {
-  "use strict";
-
   function patchInput() {
     const input = document.querySelector('#ordersDiv input[name="orderId"]');
     if (!input) return;
