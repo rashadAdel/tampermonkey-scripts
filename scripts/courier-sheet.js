@@ -1,6 +1,75 @@
 (function () {
   "use strict";
 
+  function addExternalCourierSection() {
+    const assignSection = document
+      .querySelector('button[onclick="assignCoureir();"]')
+      ?.closest(".card-body");
+
+    if (!assignSection) return;
+
+    // Prevent duplicate insertion
+    if (document.getElementById("externalCourierName")) return;
+
+    const wrapper = document.createElement("div");
+
+    wrapper.className = "card-body pl-3 pt-1 pr-3 pb-3";
+
+    wrapper.innerHTML = `
+            <div class="row align-items-center">
+
+                <label class="col-sm-3 col-form-label text-sm-end">
+                    External Courier
+                </label>
+
+                <div class="col-sm-6">
+                    <select
+                        id="externalCourierName"
+                        class="form-control select2"
+                        style="width:100%;"
+                    >
+                        <option value="">Please select..</option>
+                        <option value="jt">J&T</option>
+                    </select>
+                </div>
+
+                <button
+                    class="col-sm-3 btn btn-outline-success btn-sm"
+                    id="sendExternalCourierBtn"
+                    type="button"
+                >
+                    Send
+                </button>
+
+            </div>
+        `;
+
+    // Insert above current courier assign section
+    assignSection.parentNode.insertBefore(wrapper, assignSection);
+
+    // Init select2 if loaded
+    if (window.$ && $.fn.select2) {
+      $("#externalCourierName").select2();
+    }
+
+    // Button click
+    document
+      .getElementById("sendExternalCourierBtn")
+      .addEventListener("click", function () {
+        const courier = document.getElementById("externalCourierName").value;
+
+        if (!courier) {
+          alert("Please select external courier");
+          return;
+        }
+
+        console.log("Send orders to:", courier);
+
+        // TODO:
+        // Send selected orders to external courier API
+      });
+  }
+
   // دالة لتعديل إعدادات الجدول الأصلي لمنع الترتيب
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
@@ -110,6 +179,8 @@
 
   // مراقبة الـ DOM
   const observer = new MutationObserver(() => {
+    addExternalCourierSection();
+
     var tableFixed = fixExistingTable();
     if (document.getElementById("orderId")) {
       attachEnterListener();
@@ -122,6 +193,8 @@
       observer.disconnect();
     }
   });
+
+  addExternalCourierSection();
 
   var initialFixed = fixExistingTable();
   attachEnterListener();
