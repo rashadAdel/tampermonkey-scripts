@@ -361,26 +361,7 @@
           );
         }
 
-        // البحث في المصفوفة وحذفه بناءً على الـ ID المنظف
-        const idx = window.selectedOrders.findIndex((order) => {
-          if (!order || !order.id) return false;
-          const savedId = String(order.id)
-            .trim()
-            .replace(/[\u200e\u200f\s]/g, "");
-          return savedId === orderId;
-        });
-
-        if (idx !== -1) {
-          window.selectedOrders.splice(idx, 1);
-          console.log(
-            `Tampermonkey: تم حذف الطلب رقم ${orderId} من المصفوفة بنجاح.`,
-          );
-        } else {
-          console.warn(
-            `Tampermonkey: لم يتم العثور على الطلب رقم ${orderId} في المصفوفة لحذفه.`,
-          );
-        }
-
+     
         row.remove().draw(false);
       });
   }
