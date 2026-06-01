@@ -292,7 +292,7 @@
 
         switch (courierName.trim()) {
           case "QP":
-            QPIntegration(orders);
+            await QPIntegration(orders);
             break;
           default:
             alert(
@@ -305,11 +305,48 @@
       });
   }
 
-  function QPIntegration(orders) {
-    alert(
-      "QP Integration is not implemented yet. Orders to send: " +
-        JSON.stringify(orders),
-    );
+  async function QPIntegration(orders) {
+    function getAccessToken() {
+      return new Promise((resolve, reject) => {
+        const loginData = {
+          username: "greenL@qpx",
+          password: "80113761",
+        };
+
+        GM_xmlhttpRequest({
+          method: "POST",
+          url: "https://api.qpxpress.com/api/token/",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Origin: "https://qpxpress.com",
+          },
+          data: JSON.stringify(loginData),
+          onload: function (response) {
+            if (response.status === 200) {
+              try {
+                const jsonResponse = JSON.parse(response.responseText);
+                // هنا بنرجع الـ access token بنجاح
+                resolve(jsonResponse.access);
+              } catch (e) {
+                reject("خطأ في تحليل بيانات الـ JSON: " + e);
+              }
+            } else {
+              reject("فشل الطلب بكود: " + response.status);
+            }
+          },
+          onerror: function (error) {
+            reject("حدث خطأ في الاتصال: " + error);
+          },
+        });
+      });
+    }
+
+    const accessToken = await getAccessToken();
+
+    console.log("QP access token:", accessToken);
+
+    alert(JSON.stringify(orders));
   }
 
   function fixExistingTable() {
