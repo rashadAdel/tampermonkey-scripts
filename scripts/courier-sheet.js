@@ -346,6 +346,7 @@
             total_amount: order.totalAmount || "0",
             city: governoratesMap[order.gov] || "قاهره",
             address: order.address || " ",
+            notes: order.type == "Exchange" ? "طرد مقابل طرد" : "",
             customer: 13187,
           };
         });
