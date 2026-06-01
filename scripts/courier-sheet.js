@@ -269,7 +269,8 @@
 
     document
       .getElementById("sendExternalCourierBtn")
-      .addEventListener("click", function () {
+      .addEventListener("click", async function () {
+        // تعديل هنا
         const courierElement = document.getElementById("externalCourierName");
         const courier_id = courierElement.value;
         const courierName =
@@ -282,9 +283,12 @@
 
         $("#courierName").val(courier_id).trigger("change");
 
-        const orders = selectedIds.map((id) => {
-          return advance_search({ id, asJson: true });
-        });
+        // تعديل هنا لانتظار تحميل البيانات من السيرفر لكل الـ IDs بالتوازي
+        const orders = await Promise.all(
+          selectedIds.map((id) => {
+            return advance_search({ id, asJson: true });
+          }),
+        );
 
         switch (courierName.trim()) {
           case "QP":
