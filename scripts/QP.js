@@ -2,24 +2,25 @@
   "use strict";
 
   const CUSTOM_PAGE_SIZE = 500;
-  window.CUSTOM_PAGE_SIZE = CUSTOM_PAGE_SIZE;
 
-  // دالة المعالجة الكاملة اللي الـ Loader هيستخدمها فوراً
-  window.QP_XPRESS_BYPASS = async function (...args) {
+  // 1. اعتراض وتعديل الـ Request والـ Response
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
     let url = args[0];
 
+    // تعديل الرابط المرسل للسيرفر لطلب 500 عنصر، والبدء من الصفحة الأولى دائمًا عند التغيير
     if (typeof url === "string" && url.includes("page_size=")) {
       url = url.replace(/page_size=\d+/, `page_size=${CUSTOM_PAGE_SIZE}`);
+      // إجبار الطلب المفتوح على البدء من الصفحة 1 لتجنب الأرقام الغريبة مثل (10-166)
       if (url.includes("page=")) {
         url = url.replace(/page=\d+/, "page=1");
       }
       args[0] = url;
     }
 
-    // استخدام الـ fetch الأصلي المحفوظ
-    const orig = window.originalFetch || originalFetch;
-    const response = await orig.apply(this, args);
+    const response = await originalFetch.apply(this, args);
 
+    // تعديل الـ Response القادم من السيرفر لتصحيح الـ UI الخاص بـ React
     if (
       typeof url === "string" &&
       url.includes("api.qpxpress.com/addorders/order/")
@@ -28,13 +29,19 @@
       try {
         let data = await clone.json();
 
+        // فحص بنية البيانات وتعديل العدادات لتتوافق مع الـ 500 عنصر
         if (data) {
+          // تعديل حجم الصفحة الافتراضي في الـ response
           if (data.hasOwnProperty("page_size"))
             data.page_size = CUSTOM_PAGE_SIZE;
           if (data.hasOwnProperty("limit")) data.limit = CUSTOM_PAGE_SIZE;
+
+          // إجبار المكون على معرفة أنه في الصفحة الأولى
           if (data.hasOwnProperty("page")) data.page = 1;
           if (data.hasOwnProperty("current_page")) data.current_page = 1;
 
+          // تحديد عدد العناصر الإجمالي بناءً على المصفوفة المرتجعة (تلقائياً)
+          // يبحث السكريبت عن مصفوفة البيانات (سواء اسمها results أو data أو orders)
           let itemsArray =
             data.results ||
             data.data ||
@@ -43,6 +50,7 @@
 
           if (itemsArray && Array.isArray(itemsArray)) {
             const actualCount = itemsArray.length;
+            // تعديل الإجمالي ليكون مساوياً للعدد الفعلي المرتجع
             if (data.hasOwnProperty("count")) data.count = actualCount;
             if (data.hasOwnProperty("total")) data.total = actualCount;
             if (data.hasOwnProperty("total_count"))
@@ -50,6 +58,7 @@
           }
         }
 
+        // إعادة بناء الاستجابة بالبيانات المعدلة بالكامل
         return new Response(JSON.stringify(data), {
           status: response.status,
           statusText: response.statusText,
@@ -62,9 +71,6 @@
 
     return response;
   };
-
-  // ربط الدالة بالـ window.fetch الفعلي لتغطية أي طلبات لاحقة
-  window.fetch = window.QP_XPRESS_BYPASS;
 
   // 2. تصحيح نصوص الـ UI كدعم احتياطي
   function fixPaginationUI() {
@@ -83,11 +89,8 @@
     fixPaginationUI();
   });
 
-  if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-  } else {
-    document.addEventListener("DOMContentLoaded", () => {
-      observer.observe(document.body, { childList: true, subtree: true });
-    });
-  }
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 })();
