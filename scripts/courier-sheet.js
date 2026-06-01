@@ -360,7 +360,7 @@
           },
         ],
       ];
-      fetch("https://api.qpxpress.com/addorders/uploadfile", {
+      fetch("https://api.qpxpress.com/addorders/uploadfile/", {
         method: "POST",
         headers: {
           Accept: "application/json",
