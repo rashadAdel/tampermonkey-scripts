@@ -313,7 +313,27 @@
           downloadData,
           courierName + "_orders_" + today.replace(/\//g, "-"),
         );
+        sendToSheets(downloadData, courierName);
         await assignCoureir();
+      });
+  }
+
+  function sendToSheets(data, sheet_name) {
+    const url =
+      "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data, sheet_name }),
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        console.log("تم إرسال البيانات بنجاح:", result);
+      })
+      .catch((error) => {
+        console.error("خطأ في إرسال البيانات:", error);
       });
   }
 
