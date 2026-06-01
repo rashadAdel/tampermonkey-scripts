@@ -223,7 +223,6 @@
                 ];
               });
 
-              console.log("Normalized Orders (Array):", result);
               resolve(result); // إرجاع النتيجة للـ Promise
             } catch (e) {
               reject(e);
@@ -382,6 +381,7 @@
           reject("حدث خطأ في الاتصال: " + error.message);
         });
     }
+    await createOrders();
     window.open(
       "https://qpxpress.com/customerdashboard/orders/printorders",
       "_blank",
