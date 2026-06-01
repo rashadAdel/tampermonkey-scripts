@@ -282,12 +282,14 @@
         $("#courierName").val(courier_id).trigger("change");
 
         // تعديل هنا لانتظار تحميل البيانات من السيرفر لكل الـ IDs بالتوازي
-        const orders = await Promise.all(
-          selectedIds.map((id) => {
-            return advance_search({ id, asJson: true });
-          }),
-        );
-
+        // التعديل هنا بإضافة .flat() في النهاية
+        const orders = (
+          await Promise.all(
+            selectedIds.map((id) => {
+              return advance_search({ id, asJson: true });
+            }),
+          )
+        ).flat();
         switch (courierName.trim()) {
           case "QP":
             await QPIntegration(orders);
@@ -336,7 +338,7 @@
     async function createOrders(orders) {
       try {
         const accessToken = await getAccessToken();
-
+        console.log(orders);
         const data = [
           ...orders.map((order) => {
             return {
