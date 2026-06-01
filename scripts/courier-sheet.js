@@ -337,11 +337,54 @@
       });
     }
 
-    const accessToken = await getAccessToken();
+    async function createOrders() {
+      const accessToken = await getAccessToken();
 
-    console.log("QP access token:", accessToken);
-
-    alert(JSON.stringify(orders));
+      const data = [
+        [
+          {
+            shipment_contents: "clothes",
+            full_name: "rashad",
+            phone: "1017949727",
+            total_amount: "900",
+            city: "\u0642\u0627\u0647\u0631\u0647",
+            address: "mivida new cairo",
+            customer: 13187,
+          },
+          {
+            shipment_contents: "clothes",
+            full_name: "rashad",
+            phone: "1017949727",
+            total_amount: "900",
+            city: "\u0642\u0627\u0647\u0631\u0647",
+            address: "mivida new cairo",
+            customer: 13187,
+          },
+        ],
+      ];
+      fetch("https://api.qpxpress.com/addorders/uploadfile", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+        .then((response) => {
+          if (response.ok) return response.json();
+          throw new Error("فشل الطلب بكود: " + response.status);
+        })
+        .then((jsonResponse) => {
+          resolve(jsonResponse);
+        })
+        .catch((error) => {
+          reject("حدث خطأ في الاتصال: " + error.message);
+        });
+    }
+    window.open(
+      "https://qpxpress.com/customerdashboard/orders/printorders",
+      "_blank",
+    );
   }
 
   function fixExistingTable() {
