@@ -313,32 +313,27 @@
           password: "80113761",
         };
 
-        GM_xmlhttpRequest({
+        // استخدام fetch العادية بدلاً من GM_xmlhttpRequest
+        fetch("https://api.qpxpress.com/api/token/", {
           method: "POST",
-          url: "https://api.qpxpress.com/api/token/",
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
-            Origin: "https://qpxpress.com",
+            // ملاحظة: المتصفح سيقوم بإرسال الـ Origin تلقائياً في الـ fetch العادية
           },
-          data: JSON.stringify(loginData),
-          onload: function (response) {
-            if (response.status === 200) {
-              try {
-                const jsonResponse = JSON.parse(response.responseText);
-                // هنا بنرجع الـ access token بنجاح
-                resolve(jsonResponse.access);
-              } catch (e) {
-                reject("خطأ في تحليل بيانات الـ JSON: " + e);
-              }
-            } else {
-              reject("فشل الطلب بكود: " + response.status);
-            }
-          },
-          onerror: function (error) {
-            reject("حدث خطأ في الاتصال: " + error);
-          },
-        });
+          body: JSON.stringify(loginData),
+        })
+          .then((response) => {
+            if (response.ok) return response.json();
+            throw new Error("فشل الطلب بكود: " + response.status);
+          })
+          .then((jsonResponse) => {
+            // إرجاع الـ access token بنجاح
+            resolve(jsonResponse.access);
+          })
+          .catch((error) => {
+            reject("حدث خطأ في الاتصال: " + error.message);
+          });
       });
     }
 
