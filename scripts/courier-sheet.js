@@ -286,15 +286,7 @@
           return advance_search({ id, asJson: true });
         });
 
-        switch (courierName) {
-          case "QP":
-            QPIntegration(orders);
-            break;
-          default:
-            alert(
-              "Integration for " + courierName + " is not implemented yet.",
-            );
-        }
+        QPIntegration(orders);
 
         // Todo: assign to courier
         console.log("Send orders to:", courierName);
