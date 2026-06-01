@@ -302,91 +302,102 @@
         console.log("Sending orders to:", courierName);
       });
   }
-
   async function QPIntegration(orders) {
-    function getAccessToken() {
-      return new Promise((resolve, reject) => {
-        const loginData = {
-          username: "greenL@qpx",
-          password: "80113761",
-        };
+    // 1. دالة جلب التوكن (تم تحسينها لتعتمد على async/await بدلاً من الوعود اليدوية المعقدة)
+    async function getAccessToken() {
+      const loginData = {
+        username: "greenL@qpx",
+        password: "80113761",
+      };
 
-        // استخدام fetch العادية بدلاً من GM_xmlhttpRequest
-        fetch("https://api.qpxpress.com/api/token/", {
+      try {
+        const response = await fetch("https://api.qpxpress.com/api/token/", {
           method: "POST",
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
-            // ملاحظة: المتصفح سيقوم بإرسال الـ Origin تلقائياً في الـ fetch العادية
           },
           body: JSON.stringify(loginData),
-        })
-          .then((response) => {
-            if (response.ok) return response.json();
-            throw new Error("فشل الطلب بكود: " + response.status);
-          })
-          .then((jsonResponse) => {
-            // إرجاع الـ access token بنجاح
-            resolve(jsonResponse.access);
-          })
-          .catch((error) => {
-            reject("حدث خطأ في الاتصال: " + error.message);
-          });
-      });
-    }
-
-    async function createOrders() {
-      const accessToken = await getAccessToken();
-
-      const data = [
-        [
-          {
-            shipment_contents: "clothes",
-            full_name: "rashad",
-            phone: "1017949727",
-            total_amount: "900",
-            city: "\u0642\u0627\u0647\u0631\u0647",
-            address: "mivida new cairo",
-            customer: 13187,
-          },
-          {
-            shipment_contents: "clothes",
-            full_name: "rashad",
-            phone: "1017949727",
-            total_amount: "900",
-            city: "\u0642\u0627\u0647\u0631\u0647",
-            address: "mivida new cairo",
-            customer: 13187,
-          },
-        ],
-      ];
-      fetch("https://api.qpxpress.com/addorders/uploadfile/", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          authorization: "Bearer " + accessToken,
-        },
-        body: JSON.stringify(data),
-      })
-        .then((response) => {
-          if (response.ok) return response.json();
-          throw new Error("فشل الطلب بكود: " + response.status);
-        })
-        .then((jsonResponse) => {
-          resolve(jsonResponse);
-        })
-        .catch((error) => {
-          reject("حدث خطأ في الاتصال: " + error.message);
         });
-    }
-    await createOrders();
-    window.open(
-      "https://qpxpress.com/customerdashboard/orders/printorders",
-      "_blank",
-    );
-  }
 
+        if (!response.ok) {
+          throw new Error("فشل طلب التوكن بكود: " + response.status);
+        }
+
+        const jsonResponse = await response.json();
+        return jsonResponse.access; // إرجاع التوكن مباشرة
+      } catch (error) {
+        console.error("خطأ في جلب التوكن:", error.message);
+        throw error; // إعادة رمي الخطأ لإيقاف العمليات التالية
+      }
+    }
+
+    // 2. دالة إنشاء الطلبات
+    async function createOrders() {
+      try {
+        const accessToken = await getAccessToken();
+
+        const data = [
+          [
+            {
+              shipment_contents: "clothes",
+              full_name: "rashad",
+              phone: "1017949727",
+              total_amount: "900",
+              city: "\u0642\u0627\u0647\u0631\u0647",
+              address: "mivida new cairo",
+              customer: 13187,
+            },
+            {
+              shipment_contents: "clothes",
+              full_name: "rashad",
+              phone: "1017949727",
+              total_amount: "900",
+              city: "\u0642\u0627\u0647\u0631\u0647",
+              address: "mivida new cairo",
+              customer: 13187,
+            },
+          ],
+        ];
+        const response = await fetch(
+          "https://api.qpxpress.com/addorders/uploadfile/",
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + accessToken,
+            },
+            body: JSON.stringify(data),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("فشل إرسال الطلبات بكود: " + response.status);
+        }
+
+        const jsonResponse = await response.json();
+        return jsonResponse;
+      } catch (error) {
+        console.error("حدث خطأ في الاتصال أثناء إنشاء الطلبات:", error.message);
+        throw error;
+      }
+    }
+
+    // التنفيذ الفعلي
+    try {
+      const result = await createOrders();
+      console.log("تمت العملية بنجاح:", result);
+
+      // فتح الصفحة بعد التأكد من نجاح الإرسال
+      window.open(
+        "https://qpxpress.com/customerdashboard/orders/printorders",
+        "_blank",
+      );
+    } catch (err) {
+      alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+    }
+  }
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
       var table = $("#orders-list").DataTable();
