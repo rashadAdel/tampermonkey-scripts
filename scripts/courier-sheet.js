@@ -180,7 +180,7 @@
     });
   }
 
-  async function downloadExcel(data) {
+  async function downloadExcel(data, name) {
     // 1. التأكد من تحميل المكتبة، وإذا لم تكن موجودة يتم تحميلها فوراً
     if (typeof XLSX === "undefined") {
       console.log("جاري تحميل مكتبة XLSX...");
@@ -204,7 +204,7 @@
     ws["!views"].push({ RTL: true });
 
     XLSX.utils.book_append_sheet(wb, ws, "البيانات");
-    XLSX.writeFile(wb, "my_data.xlsx");
+    XLSX.writeFile(wb, name + ".xlsx");
   }
 
   function addExternalCourierSection() {
@@ -287,10 +287,11 @@
             "Notes",
           ],
         ];
+        const today = new Date().toLocaleDateString("en-GB");
         orders.forEach((orderList) => {
           orderList.forEach((order) => {
             downloadData.push([
-              new Date().toLocaleDateString("en-GB"),
+              today,
               order.id,
               order.shipper,
               order.consignee,
@@ -308,7 +309,10 @@
             ]);
           });
         });
-        await downloadExcel(downloadData);
+        await downloadExcel(
+          downloadData,
+          courierName + "_orders_" + today.replace(/\//g, "-"),
+        );
         await assignCoureir();
       });
   }
