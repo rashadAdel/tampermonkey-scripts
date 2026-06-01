@@ -3,62 +3,6 @@
 
   window.selectedOrders = window.selectedOrders || [];
 
-  const governoratesMap = {
-    Cairo: "قاهره",
-    Alexandria: "اسكندريه",
-    Suez: "سويس",
-    Ismailia: "اسماعيلية",
-    "Port Said": "بورسعيد",
-    Dakhalia: "دقهلية",
-    "Al Sharqia": "شرقيه",
-    Beheira: "البحيرة",
-    Damietta: "دمياط",
-    "Kafr El-Sheikh": "كفر الشيخ",
-    Qaliubia: "قليوبية",
-    Gharbeya: "غربيه",
-    Monufeya: "المنوفية",
-    Fayoum: "فيوم",
-    "Beni Swif": "بني سويف",
-    Menia: "منيا",
-    Assiut: "اسيوط",
-    Sohag: "سوهاج",
-    Qena: "قنا",
-    Luxor: "اقصر",
-    Aswan: "اسوان",
-
-    "North Coast": "قاهره",
-    "Marsa Matrouh": "مطروح",
-    Sinai: "قاهره",
-    Hurghada: "بحر الاحمر",
-    "Red Sea": "بحر الاحمر",
-
-    "International Zone 1": "قاهره",
-    International: "قاهره",
-    "Gov. Zone 3": "قاهره",
-    "Gov. Zone 4": "قاهره",
-    "Gov. Zone 5": "قاهره",
-    "Gov. Zone 6": "قاهره",
-
-    Qalyubia: "قليوبية",
-    Minya: "منيا",
-    Tanta: "غربيه",
-    "Wadi El geded": "وادي جديد",
-    Giza: "جيزة",
-    Helwan: "قاهره",
-    Matrouh: "مطروح",
-    Monufia: "المنوفية",
-    "New Valley": "وادي جديد",
-    "North Sinai": "قاهره",
-    "South Sinai": "جنوب سيناء",
-
-    Gharbia: "غربيه",
-    Faiyum: "فيوم",
-    Dakahlia: "دقهلية",
-    "Beni Suef": "بني سويف",
-    Asyut: "اسيوط",
-    "6th of October": "قاهره",
-  };
-
   // دالة تنظيف الـ HTML الممررة
   function extractTextFromHtml(html) {
     if (typeof html !== "string") return html;
@@ -303,6 +247,62 @@
       });
   }
   async function QPIntegration(orders) {
+    const governoratesMap = {
+      Cairo: "قاهره",
+      Alexandria: "اسكندريه",
+      Suez: "سويس",
+      Ismailia: "اسماعيلية",
+      "Port Said": "بورسعيد",
+      Dakhalia: "دقهلية",
+      "Al Sharqia": "شرقيه",
+      Beheira: "البحيرة",
+      Damietta: "دمياط",
+      "Kafr El-Sheikh": "كفر الشيخ",
+      Qaliubia: "قليوبية",
+      Gharbeya: "غربيه",
+      Monufeya: "المنوفية",
+      Fayoum: "فيوم",
+      "Beni Swif": "بني سويف",
+      Menia: "منيا",
+      Assiut: "اسيوط",
+      Sohag: "سوهاج",
+      Qena: "قنا",
+      Luxor: "اقصر",
+      Aswan: "اسوان",
+
+      "North Coast": "قاهره",
+      "Marsa Matrouh": "مطروح",
+      Sinai: "قاهره",
+      Hurghada: "بحر الاحمر",
+      "Red Sea": "بحر الاحمر",
+
+      "International Zone 1": "قاهره",
+      International: "قاهره",
+      "Gov. Zone 3": "قاهره",
+      "Gov. Zone 4": "قاهره",
+      "Gov. Zone 5": "قاهره",
+      "Gov. Zone 6": "قاهره",
+
+      Qalyubia: "قليوبية",
+      Minya: "منيا",
+      Tanta: "غربيه",
+      "Wadi El geded": "وادي جديد",
+      Giza: "جيزة",
+      Helwan: "قاهره",
+      Matrouh: "مطروح",
+      Monufia: "المنوفية",
+      "New Valley": "وادي جديد",
+      "North Sinai": "قاهره",
+      "South Sinai": "جنوب سيناء",
+
+      Gharbia: "غربيه",
+      Faiyum: "فيوم",
+      Dakahlia: "دقهلية",
+      "Beni Suef": "بني سويف",
+      Asyut: "اسيوط",
+      "6th of October": "قاهره",
+    };
+
     // 1. دالة جلب التوكن
     async function getAccessToken() {
       const loginData = {
