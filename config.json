@@ -6,9 +6,5 @@
   {
     "match": "https://system.greenlineco.com/bulk-status*",
     "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/bulk-status.js"
-  },
-  {
-    "match": "https://*.qpxpress.com/*",
-    "script": "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/scripts/QP.js"
   }
 ]
