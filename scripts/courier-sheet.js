@@ -299,7 +299,7 @@
         }
 
         // Todo: assign to courier
-        console.log("Sending orders to:", courierName);
+        assignCoureir();
       });
   }
   async function QPIntegration(orders) {
