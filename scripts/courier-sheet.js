@@ -199,7 +199,6 @@
               });
 
               if (asJson) {
-                console.log("Normalized Orders (JSON):", orders);
                 resolve(orders); // إرجاع النتيجة للـ Promise
                 return;
               }
