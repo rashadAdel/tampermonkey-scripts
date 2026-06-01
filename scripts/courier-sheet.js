@@ -3,6 +3,62 @@
 
   window.selectedOrders = window.selectedOrders || [];
 
+  const governoratesMap = {
+    Cairo: "قاهره",
+    Alexandria: "اسكندريه",
+    Suez: "سويس",
+    Ismailia: "اسماعيلية",
+    "Port Said": "بورسعيد",
+    Dakhalia: "دقهلية",
+    "Al Sharqia": "شرقيه",
+    Beheira: "البحيرة",
+    Damietta: "دمياط",
+    "Kafr El-Sheikh": "كفر الشيخ",
+    Qaliubia: "قليوبية",
+    Gharbeya: "غربيه",
+    Monufeya: "المنوفية",
+    Fayoum: "فيوم",
+    "Beni Swif": "بني سويف",
+    Menia: "منيا",
+    Assiut: "اسيوط",
+    Sohag: "سوهاج",
+    Qena: "قنا",
+    Luxor: "اقصر",
+    Aswan: "اسوان",
+
+    "North Coast": "قاهره",
+    "Marsa Matrouh": "مطروح",
+    Sinai: "قاهره",
+    Hurghada: "بحر الاحمر",
+    "Red Sea": "بحر الاحمر",
+
+    "International Zone 1": "قاهره",
+    International: "قاهره",
+    "Gov. Zone 3": "قاهره",
+    "Gov. Zone 4": "قاهره",
+    "Gov. Zone 5": "قاهره",
+    "Gov. Zone 6": "قاهره",
+
+    Qalyubia: "قليوبية",
+    Minya: "منيا",
+    Tanta: "غربيه",
+    "Wadi El geded": "وادي جديد",
+    Giza: "جيزة",
+    Helwan: "قاهره",
+    Matrouh: "مطروح",
+    Monufia: "المنوفية",
+    "New Valley": "وادي جديد",
+    "North Sinai": "قاهره",
+    "South Sinai": "جنوب سيناء",
+
+    Gharbia: "غربيه",
+    Faiyum: "فيوم",
+    Dakahlia: "دقهلية",
+    "Beni Suef": "بني سويف",
+    Asyut: "اسيوط",
+    "6th of October": "قاهره",
+  };
+
   // دالة تنظيف الـ HTML الممررة
   function extractTextFromHtml(html) {
     if (typeof html !== "string") return html;
@@ -218,14 +274,38 @@
         const courier_id = courierElement.value;
         const courierName =
           courierElement.options[courierElement.selectedIndex].text;
+
         if (!courier_id) {
           alert("Please select external courier");
           return;
         }
+
         $("#courierName").val(courier_id).trigger("change");
-        // TODO: send to system and google sheets and assign to courier
+
+        const orders = selectedIds.map((id) => {
+          return advance_search({ id, asJson: true });
+        });
+
+        switch (courierName) {
+          case "QP":
+            QPIntegration(orders);
+            break;
+          default:
+            alert(
+              "Integration for " + courierName + " is not implemented yet.",
+            );
+        }
+
+        // Todo: assign to courier
         console.log("Send orders to:", courierName);
       });
+  }
+
+  function QPIntegration(orders) {
+    alert(
+      "QP Integration is not implemented yet. Orders to send: " +
+        JSON.stringify(orders),
+    );
   }
 
   function fixExistingTable() {
@@ -361,7 +441,6 @@
           );
         }
 
-     
         row.remove().draw(false);
       });
   }
