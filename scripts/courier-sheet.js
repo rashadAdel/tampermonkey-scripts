@@ -289,7 +289,7 @@
         QPIntegration(orders);
 
         // Todo: assign to courier
-        console.log("Send orders to:", courierName);
+        console.log("Sending orders to:", courierName);
       });
   }
 
