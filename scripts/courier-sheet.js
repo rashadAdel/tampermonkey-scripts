@@ -303,7 +303,7 @@
       });
   }
   async function QPIntegration(orders) {
-    // 1. دالة جلب التوكن (تم تحسينها لتعتمد على async/await بدلاً من الوعود اليدوية المعقدة)
+    // 1. دالة جلب التوكن
     async function getAccessToken() {
       const loginData = {
         username: "greenL@qpx",
@@ -325,14 +325,14 @@
         }
 
         const jsonResponse = await response.json();
-        return jsonResponse.access; // إرجاع التوكن مباشرة
+        return jsonResponse.access;
       } catch (error) {
         console.error("خطأ في جلب التوكن:", error.message);
-        throw error; // إعادة رمي الخطأ لإيقاف العمليات التالية
+        throw error;
       }
     }
 
-    // 2. دالة إنشاء الطلبات
+    // 2. دالة إنشاء الطلبات (تم إصلاح خطأ الـ reject هنا)
     async function createOrders() {
       try {
         const accessToken = await getAccessToken();
