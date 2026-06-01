@@ -299,7 +299,7 @@
         }
 
         // Todo: assign to courier
-        assignCoureir();
+        await assignCoureir();
       });
   }
   async function QPIntegration(orders) {
