@@ -311,7 +311,7 @@
           downloadData,
           courierName + "_orders_" + today.replace(/\//g, "-"),
         );
-        sendToSheets(downloadData.splice(1), courierName);
+        sendToSheets(downloadData.slice(1), courierName);
         await assignCoureir();
       });
   }
