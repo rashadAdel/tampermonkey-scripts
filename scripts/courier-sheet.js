@@ -347,6 +347,7 @@
             city: governoratesMap[order.gov] || "قاهره",
             address: order.address || " ",
             notes: order.type == "Exchange" ? "طرد مقابل طرد" : "",
+            referenceID: order.id,
             customer: 13187,
           };
         });
