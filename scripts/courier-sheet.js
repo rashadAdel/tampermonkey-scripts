@@ -180,6 +180,33 @@
     });
   }
 
+  async function downloadExcel(data) {
+    // 1. التأكد من تحميل المكتبة، وإذا لم تكن موجودة يتم تحميلها فوراً
+    if (typeof XLSX === "undefined") {
+      console.log("جاري تحميل مكتبة XLSX...");
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("فشل تحميل مكتبة الإكسيل"));
+        document.head.appendChild(script);
+      });
+      console.log("تم تحميل المكتبة بنجاح!");
+    }
+
+    // 2. صناعة ملف الإكسيل وتحميله
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // ضبط الاتجاه من اليمين لليسار لدعم اللغة العربية
+    if (!ws["!views"]) ws["!views"] = [];
+    ws["!views"].push({ RTL: true });
+
+    XLSX.utils.book_append_sheet(wb, ws, "البيانات");
+    XLSX.writeFile(wb, "my_data.xlsx");
+  }
+
   function addExternalCourierSection() {
     const assignSection = document
       .querySelector('button[onclick="assignCoureir();"]')
@@ -241,11 +268,51 @@
               "Integration for " + courierName + " is not implemented yet.",
             );
         }
-
-        // Todo: assign to courier
+        const downloadData = [
+          [
+            "Date_out",
+            "ID",
+            "Shipper",
+            "Consignee",
+            "Phone",
+            "Total Amount",
+            "Status",
+            "Courier",
+            "Shipping Fees",
+            "Date In",
+            "Address",
+            "Gov",
+            "Type",
+            "Description",
+            "Notes",
+          ],
+        ];
+        orders.forEach((orderList) => {
+          orderList.forEach((order) => {
+            downloadData.push([
+              new Date().toLocaleDateString("en-GB"),
+              order.id,
+              order.shipper,
+              order.consignee,
+              order.phone,
+              order.totalAmount,
+              order.status,
+              order.courier,
+              order.shipping_fees,
+              order.date_in,
+              order.address,
+              order.gov,
+              order.type,
+              order.description,
+              order.notes,
+            ]);
+          });
+        });
+        await downloadExcel(downloadData);
         await assignCoureir();
       });
   }
+
   async function QPIntegration(orders) {
     const governoratesMap = {
       Cairo: "قاهره",
