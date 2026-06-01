@@ -64,6 +64,68 @@
     return result;
   }
 
+  // دالة لجلب التاريخ الحالي بصيغة YYYY-MM-DD بشكل صريح ومضمون
+  function getFormattedDate() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`; // النتيجة ستكون دائماً: 2026-06-02
+  }
+
+  // دوال إظهار وإخفاء ديالوج التحميل المخصص (Loading Dialog)
+  function showLoading(
+    message = "جاري معالجة الطلبات وإرسال البيانات... برجاء الانتظار",
+  ) {
+    if (document.getElementById("tm-loading-overlay")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "tm-loading-overlay";
+    overlay.style = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7); z-index: 99999;
+      display: flex; justify-content: center; align-items: center;
+      flex-direction: column; font-family: sans-serif; direction: rtl;
+    `;
+
+    const box = document.createElement("div");
+    box.style = `
+      background: #fff; padding: 30px; border-radius: 8px;
+      text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+
+    const spinner = document.createElement("div");
+    spinner.style = `
+      border: 4px solid #f3f3f3; border-top: 4px solid #28a745;
+      border-radius: 50%; width: 40px; height: 40px;
+      animation: tm-spin 1s linear infinite; margin: 0 auto 15px;
+    `;
+
+    // إضافة الأنيميشن الخاص بالسبينر لصفحة الموقع
+    if (!document.getElementById("tm-spin-style")) {
+      const style = document.createElement("style");
+      style.id = "tm-spin-style";
+      style.innerHTML =
+        "@keyframes tm-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+      document.head.appendChild(style);
+    }
+
+    const text = document.createElement("p");
+    text.id = "tm-loading-text";
+    text.textContent = message;
+    text.style = "margin: 0; font-size: 16px; color: #333; font-weight: bold;";
+
+    box.appendChild(spinner);
+    box.appendChild(text);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
+  function hideLoading() {
+    const overlay = document.getElementById("tm-loading-overlay");
+    if (overlay) overlay.remove();
+  }
+
   // تعديل: جعل الدالة ترجع Promise لضمان انتظار البيانات
   function advance_search({
     id = "",
@@ -249,70 +311,83 @@
           return;
         }
 
-        $("#courierName").val(courier_id).trigger("change");
+        // إظهار اللودينج بمجرد البدء بالعملية
+        showLoading();
 
-        const orders = await Promise.all(
-          selectedIds.map((id) => {
-            return advance_search({ id, asJson: true });
-          }),
-        );
+        try {
+          $("#courierName").val(courier_id).trigger("change");
 
-        switch (courierName.trim()) {
-          case "QP":
-            await QPIntegration(orders);
-            break;
-          default:
-            alert(
-              "Integration for " + courierName + " is not implemented yet.",
-            );
-        }
-        const downloadData = [
-          [
-            "Date_out",
-            "ID",
-            "Shipper",
-            "Consignee",
-            "Phone",
-            "Total Amount",
-            "Status",
-            "Courier",
-            "Shipping Fees",
-            "Date In",
-            "Address",
-            "Gov",
-            "Type",
-            "Description",
-            "Notes",
-          ],
-        ];
-        const today = new Date().toLocaleDateString("en-GB");
-        orders.forEach((orderList) => {
-          orderList.forEach((order) => {
-            downloadData.push([
-              today,
-              order.id,
-              order.shipper,
-              order.consignee,
-              order.phone,
-              order.totalAmount,
-              order.status,
-              order.courier,
-              order.shipping_fees,
-              order.date_in,
-              order.address,
-              order.gov,
-              order.type,
-              order.description,
-              order.notes,
-            ]);
+          const orders = await Promise.all(
+            selectedIds.map((id) => {
+              return advance_search({ id, asJson: true });
+            }),
+          );
+
+          switch (courierName.trim()) {
+            case "QP":
+              await QPIntegration(orders);
+              break;
+            default:
+              alert(
+                "Integration for " + courierName + " is not implemented yet.",
+              );
+          }
+          const downloadData = [
+            [
+              "Date_out",
+              "ID",
+              "Shipper",
+              "Consignee",
+              "Phone",
+              "Total Amount",
+              "Status",
+              "Courier",
+              "Shipping Fees",
+              "Date In",
+              "Address",
+              "Gov",
+              "Type",
+              "Description",
+              "Notes",
+            ],
+          ];
+
+          // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
+          const today = getFormattedDate();
+
+          orders.forEach((orderList) => {
+            orderList.forEach((order) => {
+              downloadData.push([
+                today,
+                order.id,
+                order.shipper,
+                order.consignee,
+                order.phone,
+                order.totalAmount,
+                order.status,
+                order.courier,
+                order.shipping_fees,
+                order.date_in,
+                order.address,
+                order.gov,
+                order.type,
+                order.description,
+                order.notes,
+              ]);
+            });
           });
-        });
-        await downloadExcel(
-          downloadData,
-          courierName + "_orders_" + today.replace(/\//g, "-"),
-        );
-        sendToSheets(downloadData.slice(1), courierName);
-        await assignCoureir();
+
+          await downloadExcel(downloadData, courierName + "_orders_" + today);
+
+          sendToSheets(downloadData.slice(1), courierName);
+          await assignCoureir();
+        } catch (err) {
+          console.error(err);
+          alert("حدث خطأ أثناء تنفيذ العملية: " + err.message);
+        } finally {
+          // إخفاء اللودينج دائماً في النهاية سواء نجحت العملية أو فشلت
+          hideLoading();
+        }
       });
   }
 
@@ -522,7 +597,7 @@
         return originalDraw.apply(this, arguments);
       };
       console.log(
-        "Tampermonkey: تم ترويض الجدول بنجاح وإلغاء الترتيب التلقائي!",
+        "Tampermonkey: تم ترويض الجدول بنجاح وإلغائي الترتيب التلقائي!",
       );
       return true;
     }
@@ -571,10 +646,16 @@
   }
 
   async function findOrdersSequentially(ids) {
-    for (const id of ids) {
-      const trimmed = id.trim();
-      if (!trimmed) continue;
-      await findOrderPromise(trimmed);
+    // إظهار اللودينج أثناء جلب الطلبات المتعددة بالـ IDs
+    showLoading("جاري البحث عن الطلبات المضافة... برجاء الانتظار");
+    try {
+      for (const id of ids) {
+        const trimmed = id.trim();
+        if (!trimmed) continue;
+        await findOrderPromise(trimmed);
+      }
+    } finally {
+      hideLoading();
     }
     console.log("Tampermonkey: تم الانتهاء من البحث عن جميع الـ IDs.");
   }
