@@ -333,7 +333,7 @@
     }
 
     // 2. دالة إنشاء الطلبات (تم إصلاح خطأ الـ reject هنا)
-    async function createOrders() {
+    async function createOrders(orders) {
       try {
         const accessToken = await getAccessToken();
 
@@ -377,7 +377,7 @@
 
     // التنفيذ الفعلي
     try {
-      const result = await createOrders();
+      const result = await createOrders(orders);
       console.log("تمت العملية بنجاح:", result);
 
       // فتح الصفحة بعد التأكد من نجاح الإرسال
