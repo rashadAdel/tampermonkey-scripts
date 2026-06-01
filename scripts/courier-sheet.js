@@ -239,7 +239,6 @@
     document
       .getElementById("sendExternalCourierBtn")
       .addEventListener("click", async function () {
-        // تعديل هنا
         const courierElement = document.getElementById("externalCourierName");
         const courier_id = courierElement.value;
         const courierName =
@@ -252,7 +251,6 @@
 
         $("#courierName").val(courier_id).trigger("change");
 
-        // تعديل هنا لانتظار تحميل البيانات من السيرفر لكل الـ IDs بالتوازي
         const orders = await Promise.all(
           selectedIds.map((id) => {
             return advance_search({ id, asJson: true });
@@ -318,23 +316,56 @@
       });
   }
 
+  // تعديل الدالة لتعمل من خلال سياق المتصفح الممرر من اللودر لتخطي CORS
   function sendToSheets(data, sheet_name) {
-    const url =
-      "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
-    fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ data, sheet_name }),
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        console.log("تم إرسال البيانات بنجاح:", result);
-      })
-      .catch((error) => {
-        console.error("خطأ في إرسال البيانات:", error);
-      });
+    try {
+      const url =
+        "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
+
+      const httpRequester =
+        window.GM_xmlhttpRequest ||
+        (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
+
+      if (httpRequester) {
+        httpRequester({
+          method: "POST",
+          url: url,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          data: JSON.stringify({ data, sheet_name }),
+          onload: function (response) {
+            if (response.status === 200 || response.status === 302) {
+              console.log(
+                "تم إرسال البيانات بنجاح إلى Sheets عبر GM_xmlhttpRequest:",
+                response.responseText,
+              );
+            } else {
+              console.error("فشل الإرسال لجوجل، كود الرد:", response.status);
+            }
+          },
+          onerror: function (error) {
+            console.error("خطأ شبكة أثناء إرسال البيانات لجوجل:", error);
+          },
+        });
+      } else {
+        // Fallback في حال فشل التمرير لأي سبب
+        console.warn(
+          "GM_xmlhttpRequest غير متوفرة، جاري المحاولة بـ fetch (قد يفشل بسبب CORS)",
+        );
+        fetch(url, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data, sheet_name }),
+        })
+          .then(() => console.log("تم الإرسال بوضعية fallback no-cors"))
+          .catch((err) => console.error("فشل إرسال الـ fallback:", err));
+      }
+    } catch (e) {
+      console.error("خطأ غير متوقع في sendToSheets:", e);
+      return;
+    }
   }
 
   async function QPIntegration(orders) {
@@ -360,20 +391,17 @@
       Qena: "قنا",
       Luxor: "اقصر",
       Aswan: "اسوان",
-
       "North Coast": "قاهره",
       "Marsa Matrouh": "مطروح",
       Sinai: "قاهره",
       Hurghada: "بحر الاحمر",
       "Red Sea": "بحر الاحمر",
-
       "International Zone 1": "قاهره",
       International: "قاهره",
       "Gov. Zone 3": "قاهره",
       "Gov. Zone 4": "قاهره",
       "Gov. Zone 5": "قاهره",
       "Gov. Zone 6": "قاهره",
-
       Qalyubia: "قليوبية",
       Minya: "منيا",
       Tanta: "غربيه",
@@ -385,7 +413,6 @@
       "New Valley": "وادي جديد",
       "North Sinai": "قاهره",
       "South Sinai": "جنوب سيناء",
-
       Gharbia: "غربيه",
       Faiyum: "فيوم",
       Dakahlia: "دقهلية",
@@ -394,7 +421,6 @@
       "6th of October": "قاهره",
     };
 
-    // 1. دالة جلب التوكن
     async function getAccessToken() {
       const loginData = {
         username: "greenL@qpx",
@@ -423,12 +449,10 @@
       }
     }
 
-    // 2. دالة إنشاء الطلبات
     async function createOrders(flatOrders) {
       try {
         const accessToken = await getAccessToken();
 
-        // بناء مصفوفة البيانات الأساسية
         const mappedOrders = flatOrders.map((order) => {
           return {
             shipment_contents: order.description || "No description",
@@ -454,7 +478,7 @@
               "Content-Type": "application/json",
               Authorization: "Bearer " + accessToken,
             },
-            body: JSON.stringify(finalPayload), // إرسال المصفوفة المغلفة
+            body: JSON.stringify(finalPayload),
           },
         );
 
@@ -472,11 +496,9 @@
 
     try {
       const flatOrders = orders.flat();
-
       const result = await createOrders(flatOrders);
       console.log("تمت العملية بنجاح:", result);
 
-      // فتح الصفحة بعد التأكد من نجاح الإرسال
       window.open(
         "https://qpxpress.com/customerdashboard/orders/printorders",
         "_blank",
@@ -485,6 +507,7 @@
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
     }
   }
+
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
       var table = $("#orders-list").DataTable();
@@ -602,7 +625,6 @@
         const table = $("#orders-list").DataTable();
         const row = table.row(tr);
 
-        // جلب الـ ID من العمود الأول وتنظيفه تماماً من الرموز المخفية والمسافات
         const orderId = tr
           .find("td:first")
           .text()
@@ -621,6 +643,7 @@
         row.remove().draw(false);
       });
   }
+
   addExternalCourierSection();
   fixExistingTable();
   attachEnterListener();
