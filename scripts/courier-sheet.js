@@ -282,14 +282,12 @@
         $("#courierName").val(courier_id).trigger("change");
 
         // تعديل هنا لانتظار تحميل البيانات من السيرفر لكل الـ IDs بالتوازي
-        // التعديل هنا بإضافة .flat() في النهاية
-        const orders = (
-          await Promise.all(
-            selectedIds.map((id) => {
-              return advance_search({ id, asJson: true });
-            }),
-          )
-        ).flat();
+        const orders = await Promise.all(
+          selectedIds.map((id) => {
+            return advance_search({ id, asJson: true });
+          }),
+        );
+
         switch (courierName.trim()) {
           case "QP":
             await QPIntegration(orders);
@@ -334,24 +332,27 @@
       }
     }
 
-    // 2. دالة إنشاء الطلبات (تم إصلاح خطأ الـ reject هنا)
-    async function createOrders(orders) {
+    // 2. دالة إنشاء الطلبات
+    async function createOrders(flatOrders) {
       try {
         const accessToken = await getAccessToken();
-        console.log(orders);
-        const data = [
-          ...orders.map((order) => {
-            return {
-              shipment_contents: order.description || "No description",
-              full_name: `${order.consignee} - #${order.id} - ${order.shipper}`,
-              phone: `0${order.phone}`,
-              total_amount: order.totalAmount || "0",
-              city: governoratesMap[order.gov] || "قاهره",
-              address: order.address || " ",
-              customer: 13187,
-            };
-          }),
-        ];
+
+        // بناء مصفوفة البيانات الأساسية
+        const mappedOrders = flatOrders.map((order) => {
+          return {
+            shipment_contents: order.description || "No description",
+            full_name: `${order.consignee} - #${order.id} - ${order.shipper}`,
+            phone: `0${order.phone}`,
+            total_amount: order.totalAmount || "0",
+            city: governoratesMap[order.gov] || "قاهره",
+            address: order.address || " ",
+            customer: 13187,
+          };
+        });
+
+        // التعديل الجوهري: تغليف المصفوفة داخل مصفوفة أخرى لتطابق الـ curl المرفق [ [ {} , {} ] ]
+        const finalPayload = [mappedOrders];
+
         const response = await fetch(
           "https://api.qpxpress.com/addorders/uploadfile/",
           {
@@ -361,7 +362,7 @@
               "Content-Type": "application/json",
               Authorization: "Bearer " + accessToken,
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify(finalPayload), // إرسال المصفوفة المغلفة
           },
         );
 
@@ -377,9 +378,10 @@
       }
     }
 
-    // التنفيذ الفعلي
     try {
-      const result = await createOrders(orders);
+      const flatOrders = orders.flat();
+
+      const result = await createOrders(flatOrders);
       console.log("تمت العملية بنجاح:", result);
 
       // فتح الصفحة بعد التأكد من نجاح الإرسال
