@@ -286,8 +286,8 @@
           return advance_search({ id, asJson: true });
         });
 
-        switch (courierName.trim().toLowerCase()) {
-          case "qp":
+        switch (courierName.trim()) {
+          case "QP":
             QPIntegration(orders);
             break;
           default:
