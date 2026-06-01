@@ -338,26 +338,17 @@
         const accessToken = await getAccessToken();
 
         const data = [
-          [
-            {
-              shipment_contents: "clothes",
-              full_name: "rashad",
-              phone: "1017949727",
-              total_amount: "900",
-              city: "\u0642\u0627\u0647\u0631\u0647",
-              address: "mivida new cairo",
+          ...orders.map((order) => {
+            return {
+              shipment_contents: order.description || "No description",
+              full_name: `${order.consignee} - #${order.id} - ${order.shipper}`,
+              phone: `0${order.phone}`,
+              total_amount: order.totalAmount || "0",
+              city: governoratesMap[order.gov] || "قاهره",
+              address: order.address || " ",
               customer: 13187,
-            },
-            {
-              shipment_contents: "clothes",
-              full_name: "rashad",
-              phone: "1017949727",
-              total_amount: "900",
-              city: "\u0642\u0627\u0647\u0631\u0647",
-              address: "mivida new cairo",
-              customer: 13187,
-            },
-          ],
+            };
+          }),
         ];
         const response = await fetch(
           "https://api.qpxpress.com/addorders/uploadfile/",
