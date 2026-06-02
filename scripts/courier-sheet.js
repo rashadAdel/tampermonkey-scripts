@@ -596,6 +596,7 @@
         "https://qpxpress.com/customerdashboard/orders/printorders",
         "_blank",
       );
+      return result;
     } catch (err) {
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
     }
