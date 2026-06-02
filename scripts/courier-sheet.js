@@ -317,24 +317,12 @@
         try {
           $("#courierName").val(courier_id).trigger("change");
 
+          //search for orders details from selectedIdss
           const orders = await Promise.all(
             selectedIds.map((id) => {
               return advance_search({ id, asJson: true });
             }),
           );
-          let downloadData;
-          switch (courierName.trim()) {
-            case "QP":
-              downloadData = await QPIntegration(orders);
-              break;
-            default:
-              alert(
-                "Integration for " + courierName + " is not implemented yet.",
-              );
-          }
-
-          // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
-          const today = getFormattedDate();
 
           const headers = [
             "Date_out",
@@ -354,12 +342,26 @@
             "Description",
             "Notes",
           ];
+          let createdOrders;
+          switch (courierName.trim()) {
+            case "QP":
+              createdOrders = await QPIntegration(orders);
+              break;
+            default:
+              alert(
+                "Integration for " + courierName + " is not implemented yet.",
+              );
+          }
+
+          // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
+          const today = getFormattedDate();
+
           await downloadExcel(
-            [headers, ...downloadData],
+            [headers, ...createdOrders],
             courierName + "_orders_" + today,
           );
 
-          sendToSheets(downloadData, courierName);
+          sendToSheets(createdOrders, courierName);
           await assignCoureir();
         } catch (err) {
           console.error(err);
