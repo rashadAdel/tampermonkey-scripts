@@ -322,64 +322,44 @@
               return advance_search({ id, asJson: true });
             }),
           );
-
+          let downloadData;
           switch (courierName.trim()) {
             case "QP":
-              await QPIntegration(orders);
+              downloadData = await QPIntegration(orders);
               break;
             default:
               alert(
                 "Integration for " + courierName + " is not implemented yet.",
               );
           }
-          const downloadData = [
-            [
-              "Date_out",
-              "ID",
-              "Shipper",
-              "Consignee",
-              "Phone",
-              "Total Amount",
-              "Status",
-              "Courier",
-              "Shipping Fees",
-              "Date In",
-              "Address",
-              "Gov",
-              "Type",
-              "Description",
-              "Notes",
-            ],
-          ];
 
           // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
           const today = getFormattedDate();
 
-          orders.forEach((orderList) => {
-            orderList.forEach((order) => {
-              downloadData.push([
-                today,
-                order.id,
-                order.shipper,
-                order.consignee,
-                order.phone,
-                order.totalAmount,
-                order.status,
-                order.courier,
-                order.shipping_fees,
-                order.date_in,
-                order.address,
-                order.gov,
-                order.type,
-                order.description,
-                order.notes,
-              ]);
-            });
-          });
+          const headers = [
+            "Date_out",
+            "OtherID",
+            "ID",
+            "Shipper",
+            "Consignee",
+            "Phone",
+            "Total Amount",
+            "Status",
+            "Courier",
+            "Shipping Fees",
+            "Date In",
+            "Address",
+            "Gov",
+            "Type",
+            "Description",
+            "Notes",
+          ];
+          await downloadExcel(
+            [headers, ...downloadData],
+            courierName + "_orders_" + today,
+          );
 
-          await downloadExcel(downloadData, courierName + "_orders_" + today);
-
-          sendToSheets(downloadData.slice(1), courierName);
+          sendToSheets(downloadData, courierName);
           await assignCoureir();
         } catch (err) {
           console.error(err);
@@ -526,9 +506,29 @@
 
     async function createOrders(flatOrders) {
       try {
+        const orders_data = {};
+        const today = getFormattedDate();
         const accessToken = await getAccessToken();
 
         const mappedOrders = flatOrders.map((order) => {
+          orders_data[order.id] = [
+            today,
+            0,
+            order.id,
+            order.shipper,
+            order.consignee,
+            order.phone,
+            order.totalAmount,
+            order.status,
+            order.courier,
+            order.shipping_fees,
+            order.date_in,
+            order.address,
+            order.gov,
+            order.type,
+            order.description,
+            order.notes,
+          ];
           return {
             shipment_contents: order.description || "No description",
             full_name: `${order.consignee} - #${order.id} - ${order.shipper}`,
@@ -561,8 +561,26 @@
           throw new Error("فشل إرسال الطلبات بكود: " + response.status);
         }
 
-        const jsonResponse = await response.json();
-        return jsonResponse;
+        await response.json();
+        const notPrintedUrl =
+          "https://api.qpxpress.com/addorders/order/?rejected=0&order_serial=&full_name=&phone_number=&city=&status=&printO=False&order_date=&to_date=&page=1&page_size=1000";
+
+        const notPrintedResponse = await fetch(notPrintedUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + accessToken,
+          },
+        });
+        const notPrintedData = await notPrintedResponse.json();
+        notPrintedData.results.forEach((order) => {
+          const serial = order.serial;
+          const full_name = order.full_name;
+          const id = full_name.match(/#(\d+)/)?.[1] ?? null;
+          orders_data[id][1] = serial;
+        });
+        return Object.values(orders_data);
       } catch (error) {
         console.error("حدث خطأ في الاتصال أثناء إنشاء الطلبات:", error.message);
         throw error;
