@@ -574,6 +574,7 @@
           },
         });
         const notPrintedData = await notPrintedResponse.json();
+        console.log("الطلبات غير المطبوعة المستلمة من QP:", notPrintedData);
         notPrintedData.results.forEach((order) => {
           const serial = order.serial;
           const full_name = order.full_name;
