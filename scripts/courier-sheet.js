@@ -565,22 +565,29 @@
         const notPrintedUrl =
           "https://api.qpxpress.com/addorders/order/?rejected=0&order_serial=&full_name=&phone_number=&city=&status=&printO=False&order_date=&to_date=&page=1&page_size=1000";
 
-        const notPrintedResponse = await fetch(notPrintedUrl, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + accessToken,
-          },
-        });
-        const notPrintedData = await notPrintedResponse.json();
-        console.log("الطلبات غير المطبوعة المستلمة من QP:", notPrintedData);
-        notPrintedData.results.forEach((order) => {
-          const serial = order.serial;
-          const full_name = order.full_name;
-          const id = full_name.match(/#(\d+)/)?.[1] ?? null;
-          orders_data[id][1] = serial;
-        });
+        try {
+          const notPrintedResponse = await fetch(notPrintedUrl, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + accessToken,
+            },
+          });
+          const notPrintedData = await notPrintedResponse.json();
+          notPrintedData.results.forEach((order) => {
+            const serial = order.serial;
+            const full_name = order.full_name;
+            const id = full_name.match(/#(\d+)/)?.[1] ?? null;
+            orders_data[id][1] = serial;
+          });
+        } catch (error) {
+          console.error(
+            "خطأ في جلب بيانات الطلبات غير المطبوعة:",
+            error.message,
+          );
+        }
+
         return Object.values(orders_data);
       } catch (error) {
         console.error("حدث خطأ في الاتصال أثناء إنشاء الطلبات:", error.message);
