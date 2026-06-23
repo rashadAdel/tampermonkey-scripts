@@ -616,6 +616,88 @@
     }
   }
 
+  // async function JTIntegration(orders) {
+  //   await loadCryptoJS();
+  //   const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
+  //   const privateKey = "2b286c37f1524f108550066791b397cd";
+  //   const apiAccount = "937255315324284985";
+  //   const customerCode = "J0086009627";
+  //   const apiUrl =
+  //     "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
+
+  //   function generateDigest(bizContent, privateKey) {
+  //     const jsonString = JSON.stringify(bizContent);
+  //     const raw = jsonString + privateKey;
+
+  //     const md5 = CryptoJS.MD5(raw);
+
+  //     return CryptoJS.enc.Base64.stringify(md5);
+  //   }
+
+  //   async function createOrder(order) {
+  //     const body = {
+  //       customerCode,
+  //       digest: bodyDigest,
+  //       txlogisticId: order.id,
+  //       expressType:
+  //         order.type === "Exchange"
+  //           ? "EX"
+  //           : order.type === "Refund"
+  //             ? "DR"
+  //             : "EZ",
+  //       deliveryType: "04",
+  //       goodsType: "ITN16",
+  //       weight: "1",
+  //       totalQuantity: "1",
+  //       operateType: "1",
+  //       itemsValue: order.totalAmount || "0",
+  //       payType: "PP_CASH",
+  //       priceCurrency: "EGP",
+  //       remark: order.description || "",
+  //       sender: {
+  //         name: order.shipper,
+  //         mobile: "01011876569",
+  //         phone: "01011876569",
+  //         countryCode: "EGY",
+  //         prov: "Cairo",
+  //         city: "Cairo",
+  //         area: "Nasr City",
+  //         street: "Nasr City street",
+  //       },
+  //       receiver: {
+  //         name: order.consignee,
+  //         mobile: `0${order.phone}`,
+  //         phone: `0${order.phone}`,
+  //         countryCode: "EGY",
+  //         prov: order.gov || "Cairo",
+  //         city: order.gov || "Cairo",
+  //         area: order.gov || "Cairo",
+  //         street: "Nasr City street",
+  //       },
+  //     };
+  //     const HeaderDigest = generateDigest(body, privateKey);
+  //     const timestamp = new Date().now();
+
+  //     const response = await fetch(apiUrl, {
+  //       method: "POST",
+  //       headers: {
+  //         apiAccount,
+  //         digest: HeaderDigest,
+  //         timestamp,
+  //       },
+  //       body: JSON.stringify(body),
+  //     });
+  //     return response.json();
+  //   }
+  //   try {
+  //     orders.forEach(async (order) => {
+  //       const result = await createOrder(order);
+  //     });
+  //   } catch (err) {
+  //     alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+  //   }
+  // }
+
   async function JTIntegration(orders) {
     await loadCryptoJS();
     const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
@@ -628,9 +710,7 @@
     function generateDigest(bizContent, privateKey) {
       const jsonString = JSON.stringify(bizContent);
       const raw = jsonString + privateKey;
-
       const md5 = CryptoJS.MD5(raw);
-
       return CryptoJS.enc.Base64.stringify(md5);
     }
 
@@ -675,26 +755,64 @@
           street: "Nasr City street",
         },
       };
+
       const HeaderDigest = generateDigest(body, privateKey);
-      const timestamp = new Date().now();
+      const timestamp = Date.now(); // تعديل الخطأ هنا
 
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           apiAccount,
           digest: HeaderDigest,
-          timestamp,
+          timestamp: String(timestamp),
         },
         body: JSON.stringify(body),
       });
-      return response.json();
+
+      const apiResult = await response.json();
+
+      // هنا نقوم بعمل mapping للبيانات لتطابق الـ Headers المطلوبة للإكسيل والشيت
+      // الـ Headers المتوقعة: ["Date_out", "OtherID", "ID", "Shipper", "Consignee", "Phone", "Total Amount", "Status", "Courier", "Shipping Fees", "Date In", "Address", "Gov", "Type", "Description", "Notes"]
+      const today = getFormattedDate();
+
+      // يمكنك استخراج رقم الشحنة (BillCode) من رد J&T إذا كان متاحاً في apiResult وضعه مكان "OtherID"
+      const billCode = apiResult?.data?.billCode || "";
+
+      return [
+        today,
+        billCode, // OtherID
+        order.id,
+        order.shipper,
+        order.consignee,
+        order.phone,
+        order.totalAmount,
+        order.status,
+        order.courier,
+        order.shipping_fees,
+        order.date_in,
+        order.address,
+        order.gov,
+        order.type,
+        order.description,
+        order.notes,
+      ];
     }
+
     try {
-      orders.forEach(async (order) => {
-        const result = await createOrder(order);
-      });
+      // تفكيك المصفوفات المتداخلة إذا كانت قادمة من Promise.all الخارجي
+      const flatOrders = orders.flat();
+
+      // استخدام Promise.all لانتظار كل الطلبات وتجميع النتائج
+      const result = await Promise.all(
+        flatOrders.map((order) => createOrder(order)),
+      );
+
+      console.log("تم إنشاء طلبات J&T بنجاح:", result);
+      return result; // إرجاع المصفوفة النهائية للزر
     } catch (err) {
+      console.error("خطأ في تكامل J&T:", err);
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+      throw err;
     }
   }
   async function loadCryptoJS() {
