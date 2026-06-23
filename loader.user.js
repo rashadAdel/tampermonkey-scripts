@@ -2,7 +2,7 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      2.1.1
+// @version      2.1.5
 // @description  Loads scripts from GitHub and provides a privileged CORS proxy bridge
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest

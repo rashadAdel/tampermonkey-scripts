@@ -615,8 +615,10 @@
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
     }
   }
+
   async function JTIntegration(orders) {
     await loadCryptoJS();
+    const data = [];
     const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
     const privateKey = "2b286c37f1524f108550066791b397cd";
     const apiAccount = "937255315324284985";
@@ -627,137 +629,107 @@
     function generateDigest(bizContent, privateKey) {
       const jsonString = JSON.stringify(bizContent);
       const raw = jsonString + privateKey;
+
       const md5 = CryptoJS.MD5(raw);
+
       return CryptoJS.enc.Base64.stringify(md5);
     }
+    const today = getFormattedDate();
+    async function createOrder(order) {
+      const body = {
+        customerCode,
+        digest: bodyDigest,
+        txlogisticId: order.id,
+        expressType:
+          order.type === "Exchange"
+            ? "EX"
+            : order.type === "Refund"
+              ? "DR"
+              : "EZ",
+        deliveryType: "04",
+        goodsType: "ITN16",
+        weight: "1",
+        totalQuantity: "1",
+        operateType: "1",
+        itemsValue: order.totalAmount || "0",
+        payType: "PP_CASH",
+        priceCurrency: "EGP",
+        remark: order.description || "",
+        sender: {
+          name: order.shipper,
+          mobile: "01011876569",
+          phone: "01011876569",
+          countryCode: "EGY",
+          prov: "Cairo",
+          city: "Cairo",
+          area: "Nasr City",
+          street: "Nasr City street",
+        },
+        receiver: {
+          name: order.consignee,
+          mobile: `0${order.phone}`,
+          phone: `0${order.phone}`,
+          countryCode: "EGY",
+          prov: order.gov || "Cairo",
+          city: order.gov || "Cairo",
+          area: order.gov || "Cairo",
+          street: "Nasr City street",
+        },
+      };
+      const HeaderDigest = generateDigest(body, privateKey);
+      const timestamp = new Date().now();
 
-    // تحويل الطلب إلى Promise يعتمد على GM_xmlhttpRequest لتخطي CORS
-    function createOrder(order) {
-      return new Promise((resolve, reject) => {
-        const body = {
-          customerCode,
-          digest: bodyDigest,
-          txlogisticId: order.id,
-          expressType:
-            order.type === "Exchange"
-              ? "EX"
-              : order.type === "Refund"
-                ? "DR"
-                : "EZ",
-          deliveryType: "04",
-          goodsType: "ITN16",
-          weight: "1",
-          totalQuantity: "1",
-          operateType: "1",
-          itemsValue: order.totalAmount || "0",
-          payType: "PP_CASH",
-          priceCurrency: "EGP",
-          remark: order.description || "",
-          sender: {
-            name: order.shipper,
-            mobile: "01011876569",
-            phone: "01011876569",
-            countryCode: "EGY",
-            prov: "Cairo",
-            city: "Cairo",
-            area: "Nasr City",
-            street: "Nasr City street",
-          },
-          receiver: {
-            name: order.consignee,
-            mobile: `0${order.phone}`,
-            phone: `0${order.phone}`,
-            countryCode: "EGY",
-            prov: order.gov || "Cairo",
-            city: order.gov || "Cairo",
-            area: order.gov || "Cairo",
-            street: "Nasr City street",
-          },
-        };
-
-        const HeaderDigest = generateDigest(body, privateKey);
-        const timestamp = Date.now();
-        const today = getFormattedDate();
-
-        const httpRequester =
-          window.GM_xmlhttpRequest ||
-          (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
-
-        if (!httpRequester) {
-          reject(
-            new Error(
-              "GM_xmlhttpRequest غير معرفة. تأكد من إعدادات الميتاداتا للسكربت // @grant GM_xmlhttpRequest",
-            ),
-          );
-          return;
-        }
-
-        httpRequester({
-          method: "POST",
-          url: apiUrl,
-          headers: {
-            "Content-Type": "application/json",
-            apiAccount: apiAccount,
-            digest: HeaderDigest,
-            timestamp: String(timestamp),
-          },
-          data: JSON.stringify(body),
-          onload: function (response) {
-            if (response.status === 200) {
-              try {
-                const apiResult = JSON.parse(response.responseText);
-                const billCode = apiResult?.data?.billCode || "";
-
-                // إرجاع السطر متوافقاً مع الهيدرز المطلوبة للإكسيل والشيت
-                resolve([
-                  today,
-                  billCode, // OtherID
-                  order.id,
-                  order.shipper,
-                  order.consignee,
-                  order.phone,
-                  order.totalAmount,
-                  order.status,
-                  order.courier,
-                  order.shipping_fees,
-                  order.date_in,
-                  order.address,
-                  order.gov,
-                  order.type,
-                  order.description,
-                  order.notes,
-                ]);
-              } catch (e) {
-                reject(
-                  new Error("فشل في عمل parsing لرد السيرفر: " + e.message),
-                );
-              }
-            } else {
-              reject(new Error("فشل طلب J&T بكود حالة: " + response.status));
-            }
-          },
-          onerror: function (error) {
-            reject(new Error("خطأ شبكة أثناء الاتصال بـ J&T"));
-          },
-        });
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          apiAccount,
+          digest: HeaderDigest,
+          timestamp,
+        },
+        body: JSON.stringify(body),
       });
-    }
 
-    try {
-      const flatOrders = orders.flat();
+      const curlCommand = `curl -X POST "${apiUrl}" \\
+  -H "apiAccount: ${apiAccount}" \\
+  -H "digest: ${HeaderDigest}" \\
+  -H "timestamp: ${timestamp}" \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(body)}'`;
 
-      // تنفيذ الطلبات بالتوازي مع تخطي الـ CORS وانتظار النتيجة
-      const result = await Promise.all(
-        flatOrders.map((order) => createOrder(order)),
+      console.log(
+        "%c" + curlCommand,
+        "color: #00ff00; background: #222; padding: 10px; border-radius: 5px;",
       );
-
-      console.log("تم تكامل J&T بنجاح وتخطي CORS:", result);
-      return result;
-    } catch (err) {
-      console.error("خطأ في تكامل J&T:", err);
-      alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
-      throw err;
+      const apiResult = JSON.parse(response.responseText);
+      const billCode = apiResult?.data?.billCode || "";
+      data.push([
+        today,
+        billCode,
+        order.id,
+        order.shipper,
+        order.consignee,
+        order.phone,
+        order.totalAmount,
+        order.status,
+        order.courier,
+        order.shipping_fees,
+        order.date_in,
+        order.address,
+        order.gov,
+        order.type,
+        order.description,
+        order.notes,
+      ]);
+      return response.json();
     }
+    try {
+      orders.forEach(async (order) => {
+        const result = await createOrder(order);
+      });
+    } catch (err) {
+      alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+    }
+    return data;
   }
 
   async function loadCryptoJS() {
