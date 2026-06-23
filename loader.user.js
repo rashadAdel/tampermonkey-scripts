@@ -806,7 +806,9 @@
         }
 
         if (errors.length) {
-          throw new Error("فشل إنشاء بعض الطلبات:\n" + errors.join("\n"));
+          const msgError = "فشل إنشاء بعض الطلبات:\n" + errors.join("\n");
+          console.error(msgError);
+          alert(msgError);
         }
 
         return successes;
