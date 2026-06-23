@@ -1,6 +1,22 @@
 (function () {
   "use strict";
+  // ✅ اختبار فوري
+  console.log("=== GM TEST ===");
+  console.log("typeof GM_xmlhttpRequest:", typeof GM_xmlhttpRequest);
+  console.log(
+    "typeof window.GM_xmlhttpRequest:",
+    typeof window.GM_xmlhttpRequest,
+  );
+  console.log("typeof unsafeWindow:", typeof unsafeWindow);
+  console.log(
+    "typeof unsafeWindow?.GM_xmlhttpRequest:",
+    typeof unsafeWindow?.GM_xmlhttpRequest,
+  );
 
+  // ✅ الحل الاحتياطي: لو مفيش GM، استخدم fetch مع CORS proxy
+  if (typeof GM_xmlhttpRequest === "undefined" && !window.GM_xmlhttpRequest) {
+    console.warn("⚠️ GM_xmlhttpRequest غير متاح!");
+  }
   window.selectedOrders = window.selectedOrders || [];
 
   // دالة تنظيف الـ HTML الممررة
