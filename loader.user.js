@@ -458,7 +458,7 @@
           method: "POST",
           url,
           headers: { "Content-Type": "application/json" },
-          data: JSON.stringify({ data, sheet_name }),
+          data: JSON.stringify({ data, sheet_name, method: "insertOrders" }),
         })
           .then((response) => {
             console.log(
@@ -1101,6 +1101,173 @@
     (function () {
       "use strict";
 
+      function deleteFromSheet(data, sheet_name) {
+        const url =
+          "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
+
+        gmRequest({
+          method: "POST",
+          url,
+          headers: { "Content-Type": "application/json" },
+          data: JSON.stringify({ data, sheet_name, method: "deleteOrders" }),
+        })
+          .then((response) => {
+            console.log(
+              "تم إرسال البيانات بنجاح إلى Sheets:",
+              response.responseText,
+            );
+          })
+          .catch((error) => {
+            console.error("فشل إرسال البيانات لجوجل:", error);
+          });
+      }
+
+      function addCustomDeleteSection() {
+        // 1. تحديد كارد الحالة (Status Card) عن طريق الـ ID الخاص بالـ Select
+        const statusSelect = document.getElementById("newStatus");
+        const statusCard = statusSelect?.closest(".card");
+
+        // التأكد من إن العنصر موجود وإننا مكررناش إضافة القسم الجديد قبل كده
+        if (statusCard && !document.getElementById("customDeleteSelect")) {
+          // 2. إنشاء الـ wrapper الجديد
+          const wrapper = document.createElement("div");
+          wrapper.className = "card mb-4"; // ضفنا كارد كامل عشان يتماشى مع الشكل الفوقاني ومارجن خفيف
+          wrapper.innerHTML = `
+        <div class="card-header">
+            <h5 class="mb-b fw-normal">Control Section</h5> </div>
+        <div class="card-body pl-3 pt-1 pr-3 pb-3">
+            <div class="row align-items-center">
+                <label class="col-sm-3 col-form-label text-sm-end">Action Type</label> <div class="col-sm-6">
+                    <select id="customDeleteSelect" class="form-control" style="width:100%;">
+                        <option value="">Please select..</option>
+                        <option value="J and T">J and T 2</option>
+                    </select>
+                </div>
+                <button class="col-sm-3 btn btn-outline-danger btn-sm" id="customDeleteBtn" type="button">Delete</button>
+            </div>
+        </div>
+    `;
+
+          // 3. إدراج القسم الجديد تماماً فوق كارد الـ Status
+          statusCard.parentNode.insertBefore(wrapper, statusCard);
+
+          // 4. إضافة الأكشن الخاص بزرار الـ Delete (لو تحب تبرمجه)
+          document
+            .getElementById("customDeleteBtn")
+            .addEventListener("click", function () {
+              const selectedValue =
+                document.getElementById("customDeleteSelect").value;
+              if (!selectedValue) {
+                alert("Please select an option first!");
+                return;
+              }
+              const newStatus = document.getElementById("newStatus");
+              if (!newStatus.value) {
+                $("#newStatus").val("OutOfStock").trigger("change");
+              }
+              const ids = JSON.parse(orderIds.value) || orderIds.value;
+
+              deleteFromSheet(ids, selectedValue);
+
+              switch (selectedValue) {
+                case "J and T":
+                  JTDelete(selectedValue);
+                  break;
+                default:
+                  alert("not supported");
+                  break;
+              }
+              console.log(`Deleting orders ${orderIds.value}`, selectedValue);
+
+              // $('#newStatus').closest('form').submit();
+            });
+        }
+      }
+      async function JTDelete(ids) {
+        // الثوابت الخاصة بحساب J&T
+        const apiAccount = "937255315324284985";
+        const privateKey = "2b286c37f1524f108550066791b397cd";
+        const customerCode = "J0086009627";
+        const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
+        const cancelOrderUrl =
+          "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/cancelOrder";
+
+        // دالة توليد الـ digest للهيدر
+        function generateHeaderDigest(bizContentJson, key) {
+          return CryptoJS.enc.Base64.stringify(
+            CryptoJS.MD5(bizContentJson + key),
+          );
+        }
+
+        if (!ids || ids.length === 0) return;
+
+        // إظهار ديالوج التحميل
+        showLoading("جاري إلغاء الطلبات على سيستم J&T... برجاء الانتظار");
+
+        const errors = [];
+        const successes = [];
+
+        // عمل Loop على المصفوفة لإلغاء كل طلب على حدة
+        for (const id of ids) {
+          try {
+            const trimmedId = String(id).trim();
+            if (!trimmedId) continue;
+
+            const bizContent = {
+              customerCode: customerCode,
+              digest: bodyDigest,
+              orderType: "1",
+              txlogisticId: trimmedId,
+              reason: "out of stock",
+            };
+
+            const bizContentJson = JSON.stringify(bizContent);
+            const timestamp = Date.now();
+            const digestHeader = generateHeaderDigest(
+              bizContentJson,
+              privateKey,
+            );
+
+            // إرسال الطلب عبر دالة تامبرمونكي الممررة gmRequestJson
+            const response = await gmRequestJson({
+              method: "POST",
+              url: cancelOrderUrl,
+              headers: {
+                apiAccount: String(apiAccount),
+                digest: digestHeader,
+                timestamp: String(timestamp),
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              data: `bizContent=${encodeURIComponent(bizContentJson)}`,
+            });
+
+            // التحقق من استجابة السيستم (إذا كان كود النجاح هو "1" أو 1)
+            if (response.code === "1" || response.code === 1) {
+              successes.push(trimmedId);
+              console.log(`[J&T] تم إلغاء الطلب رقم #${trimmedId} بنجاح.`);
+            } else {
+              throw new Error(response.msg || `كود الخطأ: ${response.code}`);
+            }
+          } catch (err) {
+            errors.push(`#${id}: ${err.message}`);
+          }
+        }
+
+        // إخفاء ديالوج التحميل بعد الانتهاء
+        hideLoading();
+
+        // عرض النتيجة للمستخدم
+        if (successes.length > 0) {
+          alert(`تم إلغاء عدد (${successes.length}) طلب بنجاح على J&T.`);
+        }
+
+        if (errors.length > 0) {
+          const msgError = "فشل إلغاء بعض الطلبات:\n" + errors.join("\n");
+          console.error(msgError);
+          alert(msgError);
+        }
+      }
+
       function patchInput() {
         const input = document.querySelector(
           '#ordersDiv input[name="orderId"]',
@@ -1141,6 +1308,7 @@
         if (input) {
           observer.disconnect();
           patchInput();
+          addCustomDeleteSection();
         }
       });
 
