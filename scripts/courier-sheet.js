@@ -618,9 +618,6 @@
 
   async function JTIntegration(orders) {
     await loadCryptoJS();
-    const data = [];
-    const flatOrders = orders.flat();
-
     const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
     const privateKey = "2b286c37f1524f108550066791b397cd";
     const apiAccount = "937255315324284985";
@@ -636,56 +633,6 @@
 
       return CryptoJS.enc.Base64.stringify(md5);
     }
-
-    function sendJTRequest(apiUrl, headers, body) {
-      return new Promise((resolve, reject) => {
-        const requester =
-          window.GM_xmlhttpRequest ||
-          (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
-
-        if (!requester) {
-          reject(new Error("GM_xmlhttpRequest not available"));
-          return;
-        }
-
-        const form = new URLSearchParams();
-        form.append("bizContent", JSON.stringify(body));
-
-        requester({
-          method: "POST",
-          url: apiUrl,
-          headers: {
-            apiAccount: headers.apiAccount,
-            digest: headers.digest,
-            timestamp: headers.timestamp,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          data: form.toString(),
-
-          onload: function (response) {
-            console.log("JT Status:", response.status);
-            console.log("JT Response:", response.responseText);
-
-            try {
-              resolve(JSON.parse(response.responseText));
-            } catch (e) {
-              resolve(response.responseText);
-            }
-          },
-
-          onerror: function (err) {
-            console.error("JT Error:", err);
-            reject(err);
-          },
-
-          ontimeout: function () {
-            reject(new Error("Request timeout"));
-          },
-        });
-      });
-    }
-
-    const today = getFormattedDate();
 
     async function createOrder(order) {
       const body = {
@@ -729,58 +676,26 @@
         },
       };
       const HeaderDigest = generateDigest(body, privateKey);
-      const timestamp = Date.now();
+      const timestamp = new Date().now();
 
-      const form = new URLSearchParams();
-
-      form.append("bizContent", JSON.stringify(body));
-
-      const apiResult = await sendJTRequest(
-        apiUrl,
-        {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
           apiAccount,
           digest: HeaderDigest,
-          timestamp: String(timestamp),
+          timestamp,
         },
-        body,
-      );
-
-      console.log("JT RESULT:", apiResult);
-
-      if (apiResult.code !== "1") {
-        throw new Error(
-          `${apiResult.code || "UNKNOWN"} - ${apiResult.msg || "Unknown error"}`,
-        );
-      }
-      const billCode = apiResult?.data?.billCode || "";
-      data.push([
-        today,
-        billCode,
-        order.id,
-        order.shipper,
-        order.consignee,
-        order.phone,
-        order.totalAmount,
-        order.status,
-        order.courier,
-        order.shipping_fees,
-        order.date_in,
-        order.address,
-        order.gov,
-        order.type,
-        order.description,
-        order.notes,
-      ]);
+        body: JSON.stringify(body),
+      });
       return response.json();
     }
     try {
-      for (const order of flatOrders) {
-        await createOrder(order);
-      }
+      orders.forEach(async (order) => {
+        const result = await createOrder(order);
+      });
     } catch (err) {
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
     }
-    return data;
   }
 
   async function loadCryptoJS() {
