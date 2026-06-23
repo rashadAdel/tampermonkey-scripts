@@ -771,7 +771,7 @@
         order.description,
         order.notes,
       ]);
-      return response.json();
+      return apiResult;
     }
     try {
       for (const order of flatOrders) {
