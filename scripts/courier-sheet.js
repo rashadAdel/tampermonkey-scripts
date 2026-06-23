@@ -677,7 +677,7 @@
         },
       };
       const HeaderDigest = generateDigest(body, privateKey);
-      const timestamp = new Date().now();
+      const timestamp = Date.now();
 
       const response = await fetch(apiUrl, {
         method: "POST",
