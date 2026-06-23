@@ -619,6 +619,8 @@
   async function JTIntegration(orders) {
     await loadCryptoJS();
     const data = [];
+    const flatOrders = orders.flat();
+
     const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
     const privateKey = "2b286c37f1524f108550066791b397cd";
     const apiAccount = "937255315324284985";
@@ -722,9 +724,9 @@
       return response.json();
     }
     try {
-      orders.forEach(async (order) => {
-        const result = await createOrder(order);
-      });
+      for (const order of flatOrders) {
+        await createOrder(order);
+      }
     } catch (err) {
       alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
     }
