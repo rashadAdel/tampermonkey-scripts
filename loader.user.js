@@ -2,27 +2,91 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      2.0.1
-// @description  Loads scripts from GitHub based on current URL
-// @icon         https://scontent.fcai19-6.fna.fbcdn.net/v/t39.30808-6/327165164_685846989996055_4420915704404091060_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=LG8yvWAdkp0Q7kNvwEH_c8t&_nc_oc=AdolowdYmy3fX0lA-2IGpknhjUV8dSUc2KCRZCRz6rFdDM8da8SX6rN3QzPD-r_r_B0&_nc_zt=23&_nc_ht=scontent.fcai19-6.fna&_nc_gid=pt2kgmMNlz59yFmO_cum7A&_nc_ss=7b2a8&oh=00_Af5c5RzFKCmqGIr3txXrGs9yb4wL13kGpdm5IxP__umwwA&oe=6A1A7AE9
+// @version      2.1.1
+// @description  Loads scripts from GitHub and provides a privileged CORS proxy bridge
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @connect      raw.githubusercontent.com
+// @connect      openapi.jtjms-eg.com
+// @connect      script.google.com
 // @updateURL    https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
 // @downloadURL  https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
 // ==/UserScript==
 
-// loader install link
-// https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
-// https://github.com/rashadAdel/tampermonkey-scripts/blob/main/loader.user.js
-
 (function () {
   window.selectedOrders = window.selectedOrders || [];
 
-  // تمرير الدالة لنطاق الصفحة لتستفيد منها السكريبتات الفرعية المجلوبة
-  if (typeof GM_xmlhttpRequest !== "undefined") {
-    window.GM_xmlhttpRequest = GM_xmlhttpRequest;
-  }
+  // إعداد جسر الاتصال الآمن لتخطي CORS من داخل الصفحة
+  const pendingRequests = new Map();
+  let requestId = 0;
+
+  // تعريف الدالة على مستوى window لتبدو مطابقة تماماً للدالة الأصلية للسكريبتات الفرعية
+  window.GM_xmlhttpRequest = function (details) {
+    const id = requestId++;
+    pendingRequests.set(id, details);
+
+    // إرسال تفاصيل الطلب إلى سياق السكريبت الرئيسي المميز
+    window.postMessage(
+      {
+        type: "GM_BRIDGE_REQUEST",
+        id: id,
+        details: {
+          method: details.method,
+          url: details.url,
+          headers: details.headers,
+          data: details.data,
+        },
+      },
+      "*",
+    );
+  };
+
+  // الاستماع للرسائل المتبادلة بين السياقين
+  window.addEventListener("message", function (event) {
+    // 1. استقبال الطلب في السياق المميز وتنفيذه برمجياً بدون قيود المتصفح
+    if (event.data && event.data.type === "GM_BRIDGE_REQUEST") {
+      const { id, details } = event.data;
+      GM_xmlhttpRequest({
+        ...details,
+        onload: function (res) {
+          window.postMessage(
+            {
+              type: "GM_BRIDGE_RESPONSE",
+              id: id,
+              success: true,
+              response: { status: res.status, responseText: res.responseText },
+            },
+            "*",
+          );
+        },
+        onerror: function (err) {
+          window.postMessage(
+            {
+              type: "GM_BRIDGE_RESPONSE",
+              id: id,
+              success: false,
+              error: err,
+            },
+            "*",
+          );
+        },
+      });
+    }
+
+    // 2. استقبال النتيجة داخل الصفحة وتوجيهها للـ Callbacks الصحيحة
+    if (event.data && event.data.type === "GM_BRIDGE_RESPONSE") {
+      const { id, success, response, error } = event.data;
+      const details = pendingRequests.get(id);
+      if (details) {
+        pendingRequests.delete(id);
+        if (success && details.onload) {
+          details.onload(response);
+        } else if (!success && details.onerror) {
+          details.onerror(error);
+        }
+      }
+    }
+  });
 
   const CONFIG_URL =
     "https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/config.json";
