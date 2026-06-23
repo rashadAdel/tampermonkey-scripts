@@ -888,7 +888,7 @@
             order.shipper,
             order.consignee,
             order.phone,
-            order.totalAmount,
+            order.type === "Refund" ? 0 : order.totalAmount,
             order.status,
             order.courier,
             order.shipping_fees,
