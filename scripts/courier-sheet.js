@@ -655,17 +655,15 @@
 
     function sendJTRequest(apiUrl, headers, body) {
       return new Promise((resolve, reject) => {
-        // ✅ الحل: البحث في كل المصادر الممكنة
+        // ✅ الآن GM_xmlhttpRequest متاح مباشرة لأننا في سياق Tampermonkey
         const requester =
           (typeof GM_xmlhttpRequest !== "undefined" && GM_xmlhttpRequest) ||
-          window.GM_xmlhttpRequest ||
-          (typeof GM !== "undefined" && GM.xmlHttpRequest) ||
           null;
 
         if (!requester) {
           reject(
             new Error(
-              "GM_xmlhttpRequest not available. Please ensure @grant GM_xmlhttpRequest is set in the main userscript.",
+              "GM_xmlhttpRequest not available - Script must run in Tampermonkey sandbox",
             ),
           );
           return;
@@ -684,23 +682,19 @@
             "Content-Type": "application/x-www-form-urlencoded",
           },
           data: form.toString(),
-
           onload: function (response) {
             console.log("JT Status:", response.status);
             console.log("JT Response:", response.responseText);
-
             try {
               resolve(JSON.parse(response.responseText));
             } catch (e) {
               resolve(response.responseText);
             }
           },
-
           onerror: function (err) {
             console.error("JT Error:", err);
             reject(err);
           },
-
           ontimeout: function () {
             reject(new Error("Request timeout"));
           },
