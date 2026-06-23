@@ -650,7 +650,7 @@
       async function JTIntegration(orders) {
         const apiAccount = "937255315324284985";
         const privateKey = "2b286c37f1524f108550066791b397cd";
-        const customerCode = "J0086024138";
+        const customerCode = "J0086009627";
         const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
         const apiUrl =
           "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
