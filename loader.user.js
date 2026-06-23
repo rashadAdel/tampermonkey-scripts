@@ -657,7 +657,7 @@
         const today = getFormattedDate();
         const orders_data = {};
         const errors = [];
-
+        const successes = [];
         const governoratesMap = {
           Cairo: "قاهره",
           Alexandria: "اسكندريه",
@@ -776,14 +776,9 @@
           if (data.code !== "1" && data.code !== 1) {
             throw new Error(data.msg || `كود: ${data.code}`);
           }
-
-          return data.data?.billCode || 0;
-        }
-
-        for (const order of orders) {
-          orders_data[order.id] = [
+          return [
             today,
-            0,
+            data.data?.billCode || 0,
             order.id,
             order.shipper,
             order.consignee,
@@ -799,9 +794,12 @@
             order.description,
             order.notes,
           ];
+        }
 
+        for (const order of orders) {
           try {
-            orders_data[order.id][1] = await createOrder(order);
+            const orderData = await createOrder(order);
+            successes.push(orderData);
           } catch (err) {
             errors.push(`#${order.id}: ${err.message}`);
           }
@@ -811,7 +809,7 @@
           throw new Error("فشل إنشاء بعض الطلبات:\n" + errors.join("\n"));
         }
 
-        return Object.values(orders_data);
+        return successes;
       }
 
       function fixExistingTable() {
