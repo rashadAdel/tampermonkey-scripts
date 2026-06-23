@@ -638,6 +638,7 @@
     }
     const today = getFormattedDate();
     async function createOrder(order) {
+      consonle.log(order);
       const body = {
         customerCode,
         digest: bodyDigest,
@@ -680,17 +681,7 @@
       };
       const HeaderDigest = generateDigest(body, privateKey);
       const timestamp = Date.now();
-      const curlCommand = `curl -X POST "${apiUrl}" \\
-  -H "apiAccount: ${apiAccount}" \\
-  -H "digest: ${HeaderDigest}" \\
-  -H "timestamp: ${timestamp}" \\
-  -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(body)}'`;
 
-      console.log(
-        "%c" + curlCommand,
-        "color: #00ff00; background: #222; padding: 10px; border-radius: 5px;",
-      );
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
