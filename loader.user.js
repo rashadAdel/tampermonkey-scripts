@@ -832,7 +832,8 @@
             weight: "1",
             totalQuantity: 1,
             operateType: 1,
-            itemsValue: String(order.totalAmount || "0"),
+            itemsValue:
+              order.type === "Refund" ? "0" : String(order.totalAmount || "0"),
             payType: "PP_CASH",
             priceCurrency: "EGP",
             remark: order.description || "",
@@ -888,7 +889,7 @@
             order.shipper,
             order.consignee,
             order.phone,
-            order.type === "Refund" ? 0 : order.totalAmount,
+            order.totalAmount,
             order.status,
             order.courier,
             order.shipping_fees,
