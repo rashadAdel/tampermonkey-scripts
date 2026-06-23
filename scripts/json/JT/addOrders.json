@@ -1,0 +1,35 @@
+{
+    "customerCode": "J0086024138",
+    "digest": "wapT8IYOjNeViOL5eZupEg==",
+    "txlogisticId": "1954375",
+    "expressType": "EZ",
+    "deliveryType": "04",
+    "goodsType": "ITN1",
+    "weight": "1",
+    "totalQuantity": "1",
+    "operateType": "1",
+    "itemsValue": "500",
+    "payType": "PP_CASH",
+    "priceCurrency": "EGP",
+    "remark": "2 items",
+    "sender": {
+        "name": "Urban threads",
+        "mobile": "01017949727",
+        "phone": "01017949727",
+        "countryCode": "EGY",
+        "prov": "Cairo",
+        "city": "Cairo",
+        "area": "Nasr City",
+        "street": "Nasr City street"
+    },
+    "receiver": {
+        "name": "Rashad",
+        "mobile": "01140797367",
+        "phone": "01140797367",
+        "countryCode": "EGY",
+        "prov": "Cairo",
+        "city": "gss",
+        "area": "sdsds",
+        "street": "Nasr City street"
+    }
+}

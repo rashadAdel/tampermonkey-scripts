@@ -286,6 +286,7 @@
                     <select id="externalCourierName" class="form-control select2" style="width:100%;">
                         <option value="">Please select..</option>
                         <option value="872">QP</option>
+                        <option value="772">J and T</option>
                     </select>
                 </div>
                 <button class="col-sm-3 btn btn-outline-success btn-sm" id="sendExternalCourierBtn" type="button">Send</button>
@@ -346,6 +347,9 @@
           switch (courierName.trim()) {
             case "QP":
               createdOrders = await QPIntegration(orders);
+              break;
+            case "J and T":
+              createdOrders = await JTIntegration(orders);
               break;
             default:
               alert(
@@ -612,6 +616,101 @@
     }
   }
 
+  async function JTIntegration(orders) {
+    await loadCryptoJS();
+    const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
+    const privateKey = "2b286c37f1524f108550066791b397cd";
+    const apiAccount = "937255315324284985";
+    const customerCode = "J0086009627";
+    const apiUrl =
+      "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
+
+    function generateDigest(bizContent, privateKey) {
+      const jsonString = JSON.stringify(bizContent);
+      const raw = jsonString + privateKey;
+
+      const md5 = CryptoJS.MD5(raw);
+
+      return CryptoJS.enc.Base64.stringify(md5);
+    }
+
+    async function createOrder(order) {
+      const body = {
+        customerCode,
+        digest: bodyDigest,
+        txlogisticId: order.id,
+        expressType:
+          order.type === "Exchange"
+            ? "EX"
+            : order.type === "Refund"
+              ? "DR"
+              : "EZ",
+        deliveryType: "04",
+        goodsType: "ITN16",
+        weight: "1",
+        totalQuantity: "1",
+        operateType: "1",
+        itemsValue: order.totalAmount || "0",
+        payType: "PP_CASH",
+        priceCurrency: "EGP",
+        remark: order.description || "",
+        sender: {
+          name: order.shipper,
+          mobile: "01011876569",
+          phone: "01011876569",
+          countryCode: "EGY",
+          prov: "Cairo",
+          city: "Cairo",
+          area: "Nasr City",
+          street: "Nasr City street",
+        },
+        receiver: {
+          name: order.consignee,
+          mobile: `0${order.phone}`,
+          phone: `0${order.phone}`,
+          countryCode: "EGY",
+          prov: order.gov || "Cairo",
+          city: order.gov || "Cairo",
+          area: order.gov || "Cairo",
+          street: "Nasr City street",
+        },
+      };
+      const HeaderDigest = generateDigest(body, privateKey);
+      const timestamp = new Date().now();
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          apiAccount,
+          digest: HeaderDigest,
+          timestamp,
+        },
+        body: JSON.stringify(body),
+      });
+      return response.json();
+    }
+    try {
+      orders.forEach(async (order) => {
+        const result = await createOrder(order);
+      });
+    } catch (err) {
+      alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+    }
+  }
+  async function loadCryptoJS() {
+    if (typeof CryptoJS === "undefined") {
+      console.log("جاري تحميل مكتبة CryptoJS...");
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("فشل تحميل مكتبة CryptoJS"));
+        document.head.appendChild(script);
+      });
+      console.log("تم تحميل مكتبة CryptoJS بنجاح!");
+    }
+  }
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
       var table = $("#orders-list").DataTable();
