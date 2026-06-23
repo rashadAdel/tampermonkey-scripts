@@ -9,6 +9,7 @@
 // @grant        GM_xmlhttpRequest
 // @require      https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js
+// @require      https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js
 // @connect      raw.githubusercontent.com
 // @connect      openapi.jtjms-eg.com
 // @connect      api.qpxpress.com
@@ -652,12 +653,15 @@
         const privateKey = "2b286c37f1524f108550066791b397cd";
         const customerCode = "J0086009627";
         const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
-        const apiUrl =
+        const createOrderUrl =
           "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
+        const printOrderUrl =
+          "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/printOrder";
+
         const today = getFormattedDate();
-        const orders_data = {};
         const errors = [];
         const successes = [];
+
         const governoratesMap = {
           Cairo: "قاهره",
           Alexandria: "اسكندريه",
@@ -711,6 +715,106 @@
           );
         }
 
+        // ==========================================
+        // دالة جلب البوليسات ودمجها ثم فتحها للمستخدم
+        // ==========================================
+        async function printAndMergeWaybills(billCodes) {
+          if (!billCodes || billCodes.length === 0) return;
+
+          console.log("جاري جلب البوليسات ودمجها بالتوازي...");
+
+          // استخدام الكائن المتاح من الـ @require في Tampermonkey
+          const mergedPdf = await PDFLib.PDFDocument.create();
+
+          // إرسال طلبات الطباعة كلها بالتوازي لسرعة الأداء (Promise.all)
+          const printPromises = billCodes.map(async (billCode) => {
+            try {
+              const bizContent = {
+                customerCode,
+                digest: bodyDigest,
+                billCode: billCode,
+                printSize: 2,
+                printCod: 1,
+                showCustomerOrderId: 1,
+              };
+
+              const bizContentJson = JSON.stringify(bizContent);
+              const timestamp = Date.now();
+
+              const response = await gmRequestJson({
+                method: "POST",
+                url: printOrderUrl,
+                headers: {
+                  apiAccount: String(apiAccount),
+                  digest: generateHeaderDigest(bizContentJson, privateKey),
+                  timestamp: String(timestamp),
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data: `bizContent=${encodeURIComponent(bizContentJson)}`,
+              });
+
+              if (response.code === "1" || response.code === 1) {
+                return { billCode, base64: response.data?.base64EncodeContent };
+              } else {
+                console.error(`فشل جلب بوليصة ${billCode}: ${response.msg}`);
+                return { billCode, error: response.msg };
+              }
+            } catch (err) {
+              console.error(`خطأ أثناء جلب بوليصة ${billCode}:`, err);
+              return { billCode, error: err.message };
+            }
+          });
+
+          const results = await Promise.all(printPromises);
+          let embeddedPagesCount = 0;
+
+          // دمج ملفات الـ PDF المسترجعة داخل الملف الرئيسي
+          for (const res of results) {
+            if (res && res.base64) {
+              try {
+                // تحويل الـ Base64 إلى مصفوفة بايتات تناسب متصفحات الويب
+                const pdfBytes = Uint8Array.from(atob(res.base64), (c) =>
+                  c.charCodeAt(0),
+                );
+                const currentPdf = await PDFLib.PDFDocument.load(pdfBytes);
+                const copiedPages = await mergedPdf.copyPages(
+                  currentPdf,
+                  currentPdf.getPageIndices(),
+                );
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+                embeddedPagesCount++;
+              } catch (mergeErr) {
+                console.error(
+                  `خطأ أثناء دمج البوليصة ${res.billCode}:`,
+                  mergeErr,
+                );
+              }
+            }
+          }
+
+          // لو تم الدمج بنجاح، حولها لـ Blob وافتحها في Tab جديد فوراً
+          if (embeddedPagesCount > 0) {
+            const mergedPdfBytes = await mergedPdf.save();
+            const blob = new Blob([mergedPdfBytes], {
+              type: "application/pdf",
+            });
+            const blobUrl = URL.createObjectURL(blob);
+
+            // فتح التبويب الجديد
+            window.open(blobUrl, "_blank");
+            console.log(
+              `تم دمج وفتح عدد (${embeddedPagesCount}) بوليصة بنجاح.`,
+            );
+          } else {
+            alert(
+              "فشل جلب بوليسات الشحن، تأكد من أن حالة الطلبات جاهزة للطباعة على سيستم J&T.",
+            );
+          }
+        }
+
+        // ==========================================
+        // دالة إنشاء الطلب الأصلي
+        // ==========================================
         async function createOrder(order) {
           const receiverGov = toArabicGov(order.gov);
           const bizContent = {
@@ -763,7 +867,7 @@
 
           const data = await gmRequestJson({
             method: "POST",
-            url: apiUrl,
+            url: createOrderUrl,
             headers: {
               apiAccount: String(apiAccount),
               digest: generateHeaderDigest(bizContentJson, privateKey),
@@ -776,6 +880,7 @@
           if (data.code !== "1" && data.code !== 1) {
             throw new Error(data.msg || `كود: ${data.code}`);
           }
+
           return [
             today,
             data.data?.billCode || 0,
@@ -796,10 +901,18 @@
           ];
         }
 
+        // التنفيذ الفعلي والـ Loop الخاص بإنشاء الطلبات أولاً
+        const createdBillCodes = [];
+
         for (const order of orders) {
           try {
             const orderData = await createOrder(order);
             successes.push(orderData);
+
+            // تجميع الـ billCode المرتجع للبوليسات الناجحة فقط
+            if (orderData[1] && orderData[1] !== 0) {
+              createdBillCodes.push(orderData[1]);
+            }
           } catch (err) {
             errors.push(`#${order.id}: ${err.message}`);
           }
@@ -809,6 +922,11 @@
           const msgError = "فشل إنشاء بعض الطلبات:\n" + errors.join("\n");
           console.error(msgError);
           alert(msgError);
+        }
+
+        // استدعاء دالة الطباعة المدمجة تلقائياً إذا وُجدت أكواد ناجحة
+        if (createdBillCodes.length > 0) {
+          await printAndMergeWaybills(createdBillCodes);
         }
 
         return successes;
