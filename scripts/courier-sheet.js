@@ -678,17 +678,6 @@
       };
       const HeaderDigest = generateDigest(body, privateKey);
       const timestamp = Date.now();
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          apiAccount,
-          digest: HeaderDigest,
-          timestamp,
-        },
-        body: JSON.stringify(body),
-      });
-
       const curlCommand = `curl -X POST "${apiUrl}" \\
   -H "apiAccount: ${apiAccount}" \\
   -H "digest: ${HeaderDigest}" \\
@@ -700,6 +689,16 @@
         "%c" + curlCommand,
         "color: #00ff00; background: #222; padding: 10px; border-radius: 5px;",
       );
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          apiAccount,
+          digest: HeaderDigest,
+          timestamp,
+        },
+        body: JSON.stringify(body),
+      });
+
       const apiResult = JSON.parse(response.responseText);
       const billCode = apiResult?.data?.billCode || "";
       data.push([
