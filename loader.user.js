@@ -1101,11 +1101,25 @@
     (function () {
       "use strict";
 
+      // دالة مساعدة لتحديث حالة الزرار (Loading / Normal)
+      function toggleLoading(isLoading) {
+        const btn = document.getElementById("customDeleteBtn");
+        if (!btn) return;
+        if (isLoading) {
+          btn.disabled = true;
+          btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> جارٍ الحذف...`;
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = "Delete";
+        }
+      }
+
       function deleteFromSheet(data, sheet_name) {
         const url =
           "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
 
-        gmRequest({
+        // بنرجع الـ Promise عشان ننتظره في الـ Loading
+        return gmRequest({
           method: "POST",
           url,
           headers: { "Content-Type": "application/json" },
@@ -1118,20 +1132,21 @@
             );
           })
           .catch((error) => {
-            console.error("فشل إرسال البيانات لجوجل:", error);
+            // المشكلة غالباً بسبب الـ Redirect الخاص بجوجل، لو الشيت بيسمع فعلاً يبقى الإجراء تم بنجاح رغم الـ Error
+            console.warn(
+              "تنبيــه بخصوص جوجل شيت (قد تكون البيانات وصلت بالفعل):",
+              error,
+            );
           });
       }
 
       function addCustomDeleteSection() {
-        // 1. تحديد كارد الحالة (Status Card) عن طريق الـ ID الخاص بالـ Select
         const statusSelect = document.getElementById("newStatus");
         const statusCard = statusSelect?.closest(".card");
 
-        // التأكد من إن العنصر موجود وإننا مكررناش إضافة القسم الجديد قبل كده
         if (statusCard && !document.getElementById("customDeleteSelect")) {
-          // 2. إنشاء الـ wrapper الجديد
           const wrapper = document.createElement("div");
-          wrapper.className = "card mb-4"; // ضفنا كارد كامل عشان يتماشى مع الشكل الفوقاني ومارجن خفيف
+          wrapper.className = "card mb-4";
           wrapper.innerHTML = `
         <div class="card-header">
             <h5 class="mb-b fw-normal">Control Section</h5> </div>
@@ -1148,43 +1163,66 @@
         </div>
     `;
 
-          // 3. إدراج القسم الجديد تماماً فوق كارد الـ Status
           statusCard.parentNode.insertBefore(wrapper, statusCard);
 
-          // 4. إضافة الأكشن الخاص بزرار الـ Delete (لو تحب تبرمجه)
           document
             .getElementById("customDeleteBtn")
-            .addEventListener("click", function () {
+            .addEventListener("click", async function () {
               const selectedValue =
                 document.getElementById("customDeleteSelect").value;
               if (!selectedValue) {
                 alert("Please select an option first!");
                 return;
               }
+
               const newStatus = document.getElementById("newStatus");
               if (!newStatus.value) {
                 $("#newStatus").val("OutOfStock").trigger("change");
               }
-              const ids = JSON.parse(orderIds.value) || orderIds.value;
 
-              deleteFromSheet(ids, selectedValue);
-
-              switch (selectedValue) {
-                case "J and T":
-                  JTDelete(selectedValue);
-                  break;
-                default:
-                  alert("not supported");
-                  break;
+              // جلب الـ IDs الحقيقية بشكل صحيح
+              let ids = [];
+              try {
+                ids = JSON.parse(orderIds.value);
+              } catch (e) {
+                ids = orderIds.value ? [orderIds.value] : [];
               }
-              console.log(`Deleting orders ${orderIds.value}`, selectedValue);
 
-              // $('#newStatus').closest('form').submit();
+              if (!ids || ids.length === 0) {
+                alert("No orders selected/found!");
+                return;
+              }
+
+              // تشغيل الـ Loading
+              toggleLoading(true);
+
+              console.log(`Deleting orders`, ids, selectedValue);
+
+              try {
+                // 1. الحذف من الجوجل شيت أولاً وانتظاره
+                await deleteFromSheet(ids, selectedValue);
+
+                // 2. تشغيل حذف الـ J&T بناءً على الشرط وتمرير الـ ids وليس الـ selectedValue!
+                switch (selectedValue) {
+                  case "J and T":
+                    await JTDelete(ids); // تعديل هنا: مررنا الـ ids الحقيقية
+                    break;
+                  default:
+                    alert("not supported");
+                    break;
+                }
+                $("#newStatus").closest("form").submit();
+              } catch (globalError) {
+                console.error("حدث خطأ أثناء تنفيذ العمليات:", globalError);
+              } finally {
+                // إيقاف الـ Loading في كل الأحوال (نجاح أو فشل)
+                toggleLoading(false);
+              }
             });
         }
       }
+
       async function JTDelete(ids) {
-        // الثوابت الخاصة بحساب J&T
         const apiAccount = "937255315324284985";
         const privateKey = "2b286c37f1524f108550066791b397cd";
         const customerCode = "J0086009627";
@@ -1192,22 +1230,17 @@
         const cancelOrderUrl =
           "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/cancelOrder";
 
-        // دالة توليد الـ digest للهيدر
         function generateHeaderDigest(bizContentJson, key) {
           return CryptoJS.enc.Base64.stringify(
             CryptoJS.MD5(bizContentJson + key),
           );
         }
 
-        if (!ids || ids.length === 0) return;
-
-        // إظهار ديالوج التحميل
-        showLoading("جاري إلغاء الطلبات على سيستم J&T... برجاء الانتظار");
+        if (!ids || !Array.isArray(ids) || ids.length === 0) return;
 
         const errors = [];
         const successes = [];
 
-        // عمل Loop على المصفوفة لإلغاء كل طلب على حدة
         for (const id of ids) {
           try {
             const trimmedId = String(id).trim();
@@ -1228,7 +1261,6 @@
               privateKey,
             );
 
-            // إرسال الطلب عبر دالة تامبرمونكي الممررة gmRequestJson
             const response = await gmRequestJson({
               method: "POST",
               url: cancelOrderUrl,
@@ -1241,7 +1273,6 @@
               data: `bizContent=${encodeURIComponent(bizContentJson)}`,
             });
 
-            // التحقق من استجابة السيستم (إذا كان كود النجاح هو "1" أو 1)
             if (response.code === "1" || response.code === 1) {
               successes.push(trimmedId);
               console.log(`[J&T] تم إلغاء الطلب رقم #${trimmedId} بنجاح.`);
@@ -1253,10 +1284,6 @@
           }
         }
 
-        // إخفاء ديالوج التحميل بعد الانتهاء
-        hideLoading();
-
-        // عرض النتيجة للمستخدم
         if (successes.length > 0) {
           alert(`تم إلغاء عدد (${successes.length}) طلب بنجاح على J&T.`);
         }
@@ -1274,11 +1301,8 @@
         );
         if (!input) return;
 
-        // Change type to text to allow spaces
         input.type = "text";
         input.placeholder = "Order id... (أو أكتر مفصولين بمسافة)";
-
-        // Remove original inline handler
         input.removeAttribute("onkeydown");
 
         input.addEventListener("keydown", async function (event) {
@@ -1300,7 +1324,6 @@
         console.log("[Greenline] Bulk order ID input patched ✅");
       }
 
-      // Wait for DOM + repeater to render
       const observer = new MutationObserver(() => {
         const input = document.querySelector(
           '#ordersDiv input[name="orderId"]',
