@@ -639,12 +639,19 @@
 
     function sendJTRequest(apiUrl, headers, body) {
       return new Promise((resolve, reject) => {
+        // ✅ الحل: البحث في كل المصادر الممكنة
         const requester =
+          (typeof GM_xmlhttpRequest !== "undefined" && GM_xmlhttpRequest) ||
           window.GM_xmlhttpRequest ||
-          (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
+          (typeof GM !== "undefined" && GM.xmlHttpRequest) ||
+          null;
 
         if (!requester) {
-          reject(new Error("GM_xmlhttpRequest not available"));
+          reject(
+            new Error(
+              "GM_xmlhttpRequest not available. Please ensure @grant GM_xmlhttpRequest is set in the main userscript.",
+            ),
+          );
           return;
         }
 
