@@ -718,99 +718,93 @@
         // ==========================================
         // دالة جلب البوليسات ودمجها ثم فتحها للمستخدم
         // ==========================================
-        async function printAndMergeWaybills(billCodes) {
-          if (!billCodes || billCodes.length === 0) return;
+        async function printAndMergeWaybills(billCodes) async function printAndMergeWaybills(billCodes) {
+  if (!billCodes || billCodes.length === 0) return;
 
-          console.log("جاري جلب البوليسات ودمجها بالتوازي...");
+  // 1. حماية أولى: إزالة أي تكرار في مصفوفة الأكواد القادمة من دالة الإنشاء
+  const uniqueBillCodes = [...new Set(billCodes)];
+  
+  console.log(`جاري جلب البوليسات ودمجها بالتوازي لعدد (${uniqueBillCodes.length}) كود فريد...`);
 
-          // استخدام الكائن المتاح من الـ @require في Tampermonkey
-          const mergedPdf = await PDFLib.PDFDocument.create();
+  // استخدام الكائن المتاح من الـ @require في Tampermonkey
+  const mergedPdf = await PDFLib.PDFDocument.create();
 
-          // إرسال طلبات الطباعة كلها بالتوازي لسرعة الأداء (Promise.all)
-          const printPromises = billCodes.map(async (billCode) => {
-            try {
-              const bizContent = {
-                customerCode,
-                digest: bodyDigest,
-                billCode: billCode,
-                printSize: 2,
-                printCod: 1,
-                showCustomerOrderId: 1,
-              };
+  // إرسال طلبات الطباعة للأكواد الفريدة فقط بالتوازي
+  const printPromises = uniqueBillCodes.map(async (billCode) => {
+    try {
+      const bizContent = {
+        customerCode,
+        digest: bodyDigest,
+        billCode: billCode,
+        printSize: 2,
+        printCod: 1,
+        showCustomerOrderId: 1,
+      };
 
-              const bizContentJson = JSON.stringify(bizContent);
-              const timestamp = Date.now();
+      const bizContentJson = JSON.stringify(bizContent);
+      const timestamp = Date.now();
 
-              const response = await gmRequestJson({
-                method: "POST",
-                url: printOrderUrl,
-                headers: {
-                  apiAccount: String(apiAccount),
-                  digest: generateHeaderDigest(bizContentJson, privateKey),
-                  timestamp: String(timestamp),
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                data: `bizContent=${encodeURIComponent(bizContentJson)}`,
-              });
+      const response = await gmRequestJson({
+        method: "POST",
+        url: printOrderUrl,
+        headers: {
+          apiAccount: String(apiAccount),
+          digest: generateHeaderDigest(bizContentJson, privateKey),
+          timestamp: String(timestamp),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data: `bizContent=${encodeURIComponent(bizContentJson)}`,
+      });
 
-              if (response.code === "1" || response.code === 1) {
-                return { billCode, base64: response.data?.base64EncodeContent };
-              } else {
-                console.error(`فشل جلب بوليصة ${billCode}: ${response.msg}`);
-                return { billCode, error: response.msg };
-              }
-            } catch (err) {
-              console.error(`خطأ أثناء جلب بوليصة ${billCode}:`, err);
-              return { billCode, error: err.message };
-            }
-          });
+      if (response.code === "1" || response.code === 1) {
+        return { billCode, base64: response.data?.base64EncodeContent };
+      } else {
+        console.error(`فشل جلب بوليصة ${billCode}: ${response.msg}`);
+        return null; // نرجع null بدل الأخطاء لسهولة الفلترة
+      }
+    } catch (err) {
+      console.error(`خطأ أثناء جلب بوليصة ${billCode}:`, err);
+      return null;
+    }
+  });
 
-          const results = await Promise.all(printPromises);
-          let embeddedPagesCount = 0;
+  const results = await Promise.all(printPromises);
+  let embeddedPagesCount = 0;
 
-          // دمج ملفات الـ PDF المسترجعة داخل الملف الرئيسي
-          for (const res of results) {
-            if (res && res.base64) {
-              try {
-                // تحويل الـ Base64 إلى مصفوفة بايتات تناسب متصفحات الويب
-                const pdfBytes = Uint8Array.from(atob(res.base64), (c) =>
-                  c.charCodeAt(0),
-                );
-                const currentPdf = await PDFLib.PDFDocument.load(pdfBytes);
-                const copiedPages = await mergedPdf.copyPages(
-                  currentPdf,
-                  currentPdf.getPageIndices(),
-                );
-                copiedPages.forEach((page) => mergedPdf.addPage(page));
-                embeddedPagesCount++;
-              } catch (mergeErr) {
-                console.error(
-                  `خطأ أثناء دمج البوليصة ${res.billCode}:`,
-                  mergeErr,
-                );
-              }
-            }
-          }
+  // دمج ملفات الـ PDF المسترجعة داخل الملف الرئيسي مع استبعاد أي قيمة فارغة
+  for (const res of results) {
+    if (res && res.base64) {
+      try {
+        // تحويل الـ Base64 إلى مصفوفة بايتات تناسب متصفحات الويب
+        const pdfBytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
+        const currentPdf = await PDFLib.PDFDocument.load(pdfBytes);
+        const copiedPages = await mergedPdf.copyPages(
+          currentPdf,
+          currentPdf.getPageIndices(),
+        );
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+        embeddedPagesCount++;
+      } catch (mergeErr) {
+        console.error(`خطأ أثناء دمج البوليصة ${res.billCode}:`, mergeErr);
+      }
+    }
+  }
 
-          // لو تم الدمج بنجاح، حولها لـ Blob وافتحها في Tab جديد فوراً
-          if (embeddedPagesCount > 0) {
-            const mergedPdfBytes = await mergedPdf.save();
-            const blob = new Blob([mergedPdfBytes], {
-              type: "application/pdf",
-            });
-            const blobUrl = URL.createObjectURL(blob);
+  // لو تم الدمج بنجاح، حولها لـ Blob وافتحها في Tab جديد فوراً
+  if (embeddedPagesCount > 0) {
+    const mergedPdfBytes = await mergedPdf.save();
+    const blob = new Blob([mergedPdfBytes], {
+      type: "application/pdf",
+    });
+    const blobUrl = URL.createObjectURL(blob);
 
-            // فتح التبويب الجديد
-            window.open(blobUrl, "_blank");
-            console.log(
-              `تم دمج وفتح عدد (${embeddedPagesCount}) بوليصة بنجاح.`,
-            );
-          } else {
-            alert(
-              "فشل جلب بوليسات الشحن، تأكد من أن حالة الطلبات جاهزة للطباعة على سيستم J&T.",
-            );
-          }
-        }
+    // فتح التبويب الجديد
+    window.open(blobUrl, "_blank");
+    console.log(`تم دمج وفتح عدد (${embeddedPagesCount}) بوليصة فريدة بنجاح.`);
+  } else {
+    alert("فشل جلب بوليسات الشحن، تأكد من أن حالة الطلبات جاهزة للطباعة على سيستم J&T.");
+  }
+}
 
         // ==========================================
         // دالة إنشاء الطلب الأصلي
