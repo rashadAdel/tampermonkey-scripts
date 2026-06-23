@@ -1,22 +1,6 @@
 (function () {
   "use strict";
-  // ✅ اختبار فوري
-  console.log("=== GM TEST ===");
-  console.log("typeof GM_xmlhttpRequest:", typeof GM_xmlhttpRequest);
-  console.log(
-    "typeof window.GM_xmlhttpRequest:",
-    typeof window.GM_xmlhttpRequest,
-  );
-  console.log("typeof unsafeWindow:", typeof unsafeWindow);
-  console.log(
-    "typeof unsafeWindow?.GM_xmlhttpRequest:",
-    typeof unsafeWindow?.GM_xmlhttpRequest,
-  );
 
-  // ✅ الحل الاحتياطي: لو مفيش GM، استخدم fetch مع CORS proxy
-  if (typeof GM_xmlhttpRequest === "undefined" && !window.GM_xmlhttpRequest) {
-    console.warn("⚠️ GM_xmlhttpRequest غير متاح!");
-  }
   window.selectedOrders = window.selectedOrders || [];
 
   // دالة تنظيف الـ HTML الممررة
@@ -655,17 +639,12 @@
 
     function sendJTRequest(apiUrl, headers, body) {
       return new Promise((resolve, reject) => {
-        // ✅ الآن GM_xmlhttpRequest متاح مباشرة لأننا في سياق Tampermonkey
         const requester =
-          (typeof GM_xmlhttpRequest !== "undefined" && GM_xmlhttpRequest) ||
-          null;
+          window.GM_xmlhttpRequest ||
+          (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
 
         if (!requester) {
-          reject(
-            new Error(
-              "GM_xmlhttpRequest not available - Script must run in Tampermonkey sandbox",
-            ),
-          );
+          reject(new Error("GM_xmlhttpRequest not available"));
           return;
         }
 
@@ -682,19 +661,23 @@
             "Content-Type": "application/x-www-form-urlencoded",
           },
           data: form.toString(),
+
           onload: function (response) {
             console.log("JT Status:", response.status);
             console.log("JT Response:", response.responseText);
+
             try {
               resolve(JSON.parse(response.responseText));
             } catch (e) {
               resolve(response.responseText);
             }
           },
+
           onerror: function (err) {
             console.error("JT Error:", err);
             reject(err);
           },
+
           ontimeout: function () {
             reject(new Error("Request timeout"));
           },
@@ -788,7 +771,7 @@
         order.description,
         order.notes,
       ]);
-      return apiResult;
+      return response.json();
     }
     try {
       for (const order of flatOrders) {
