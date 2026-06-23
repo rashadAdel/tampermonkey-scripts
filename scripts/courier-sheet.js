@@ -3,6 +3,39 @@
 
   window.selectedOrders = window.selectedOrders || [];
 
+  function gmRequest({ method = "GET", url, headers = {}, data = undefined }) {
+    const requester = window.GM_xmlhttpRequest;
+    if (!requester) {
+      return Promise.reject(new Error("GM_xmlhttpRequest غير متوفرة"));
+    }
+    return new Promise((resolve, reject) => {
+      requester({
+        method,
+        url,
+        headers,
+        data,
+        onload(response) {
+          if (response.status >= 200 && response.status < 300) {
+            resolve(response);
+          } else {
+            reject(
+              new Error(
+                `Request failed with status ${response.status}: ${response.responseText}`,
+              ),
+            );
+          }
+        },
+        onerror: reject,
+      });
+    });
+  }
+
+  function gmRequestJson(options) {
+    return gmRequest(options).then((response) =>
+      JSON.parse(response.responseText),
+    );
+  }
+
   // دالة تنظيف الـ HTML الممررة
   function extractTextFromHtml(html) {
     if (typeof html !== "string") return html;
@@ -242,22 +275,7 @@
     });
   }
 
-  async function downloadExcel(data, name) {
-    // 1. التأكد من تحميل المكتبة، وإذا لم تكن موجودة يتم تحميلها فوراً
-    if (typeof XLSX === "undefined") {
-      console.log("جاري تحميل مكتبة XLSX...");
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("فشل تحميل مكتبة الإكسيل"));
-        document.head.appendChild(script);
-      });
-      console.log("تم تحميل المكتبة بنجاح!");
-    }
-
-    // 2. صناعة ملف الإكسيل وتحميله
+  function downloadExcel(data, name) {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
 
@@ -319,11 +337,13 @@
           $("#courierName").val(courier_id).trigger("change");
 
           //search for orders details from selectedIdss
-          const orders = await Promise.all(
-            selectedIds.map((id) => {
-              return advance_search({ id, asJson: true });
-            }),
-          );
+          const orders = (
+            await Promise.all(
+              selectedIds.map((id) => {
+                return advance_search({ id, asJson: true });
+              }),
+            )
+          ).flat();
 
           const headers = [
             "Date_out",
@@ -355,6 +375,12 @@
               alert(
                 "Integration for " + courierName + " is not implemented yet.",
               );
+              return;
+          }
+
+          if (!createdOrders?.length) {
+            alert("لم يتم إنشاء أي طلبات.");
+            return;
           }
 
           // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
@@ -377,56 +403,22 @@
       });
   }
 
-  // تعديل الدالة لتعمل من خلال سياق المتصفح الممرر من اللودر لتخطي CORS
   function sendToSheets(data, sheet_name) {
-    try {
-      const url =
-        "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
+    const url =
+      "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
 
-      const httpRequester =
-        window.GM_xmlhttpRequest ||
-        (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
-
-      if (httpRequester) {
-        httpRequester({
-          method: "POST",
-          url: url,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          data: JSON.stringify({ data, sheet_name }),
-          onload: function (response) {
-            if (response.status === 200 || response.status === 302) {
-              console.log(
-                "تم إرسال البيانات بنجاح إلى Sheets عبر GM_xmlhttpRequest:",
-                response.responseText,
-              );
-            } else {
-              console.error("فشل الإرسال لجوجل، كود الرد:", response.status);
-            }
-          },
-          onerror: function (error) {
-            console.error("خطأ شبكة أثناء إرسال البيانات لجوجل:", error);
-          },
-        });
-      } else {
-        // Fallback في حال فشل التمرير لأي سبب
-        console.warn(
-          "GM_xmlhttpRequest غير متوفرة، جاري المحاولة بـ fetch (قد يفشل بسبب CORS)",
-        );
-        fetch(url, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data, sheet_name }),
-        })
-          .then(() => console.log("تم الإرسال بوضعية fallback no-cors"))
-          .catch((err) => console.error("فشل إرسال الـ fallback:", err));
-      }
-    } catch (e) {
-      console.error("خطأ غير متوقع في sendToSheets:", e);
-      return;
-    }
+    gmRequest({
+      method: "POST",
+      url,
+      headers: { "Content-Type": "application/json" },
+      data: JSON.stringify({ data, sheet_name }),
+    })
+      .then((response) => {
+        console.log("تم إرسال البيانات بنجاح إلى Sheets:", response.responseText);
+      })
+      .catch((error) => {
+        console.error("فشل إرسال البيانات لجوجل:", error);
+      });
   }
 
   async function QPIntegration(orders) {
@@ -489,20 +481,15 @@
       };
 
       try {
-        const response = await fetch("https://api.qpxpress.com/api/token/", {
+        const jsonResponse = await gmRequestJson({
           method: "POST",
+          url: "https://api.qpxpress.com/api/token/",
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(loginData),
+          data: JSON.stringify(loginData),
         });
-
-        if (!response.ok) {
-          throw new Error("فشل طلب التوكن بكود: " + response.status);
-        }
-
-        const jsonResponse = await response.json();
         return jsonResponse.access;
       } catch (error) {
         console.error("خطأ في جلب التوكن:", error.message);
@@ -550,37 +537,30 @@
 
         const finalPayload = [mappedOrders];
 
-        const response = await fetch(
-          "https://api.qpxpress.com/addorders/uploadfile/",
-          {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + accessToken,
-            },
-            body: JSON.stringify(finalPayload),
+        await gmRequestJson({
+          method: "POST",
+          url: "https://api.qpxpress.com/addorders/uploadfile/",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + accessToken,
           },
-        );
+          data: JSON.stringify(finalPayload),
+        });
 
-        if (!response.ok) {
-          throw new Error("فشل إرسال الطلبات بكود: " + response.status);
-        }
-
-        await response.json();
         const notPrintedUrl =
           "https://api.qpxpress.com/addorders/order/?rejected=0&order_serial=&full_name=&phone_number=&city=&status=&printO=False&order_date=&to_date=&page=1&page_size=1000";
 
         try {
-          const notPrintedResponse = await fetch(notPrintedUrl, {
+          const notPrintedData = await gmRequestJson({
             method: "GET",
+            url: notPrintedUrl,
             headers: {
               Accept: "application/json",
               "Content-Type": "application/json",
               Authorization: "Bearer " + accessToken,
             },
           });
-          const notPrintedData = await notPrintedResponse.json();
           notPrintedData.results.forEach((order) => {
             const serial = order.serial;
             const full_name = order.full_name;
@@ -602,8 +582,7 @@
     }
 
     try {
-      const flatOrders = orders.flat();
-      const result = await createOrders(flatOrders);
+      const result = await createOrders(orders);
       console.log("تمت العملية بنجاح:", result);
 
       window.open(
@@ -617,13 +596,15 @@
   }
 
   async function JTIntegration(orders) {
-    await loadCryptoJS();
     const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
     const privateKey = "2b286c37f1524f108550066791b397cd";
     const apiAccount = "937255315324284985";
     const customerCode = "J0086009627";
     const apiUrl =
       "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
+    const today = getFormattedDate();
+    const orders_data = {};
+    const errors = [];
 
     function generateDigest(bizContent, privateKey) {
       const jsonString = JSON.stringify(bizContent);
@@ -672,46 +653,71 @@
           prov: order.gov || "Cairo",
           city: order.gov || "Cairo",
           area: order.gov || "Cairo",
-          street: "Nasr City street",
+          street: order.address || " ",
         },
       };
       const HeaderDigest = generateDigest(body, privateKey);
       const timestamp = Date.now();
 
-      const response = await fetch(apiUrl, {
+      const data = await gmRequestJson({
         method: "POST",
+        url: apiUrl,
         headers: {
           apiAccount,
           digest: HeaderDigest,
-          timestamp,
+          timestamp: String(timestamp),
         },
-        body: JSON.stringify(body),
+        data: JSON.stringify(body),
       });
-      return response.json();
+
+      const isSuccess =
+        data.code === "1" || data.code === 1 || data.success === true;
+      if (!isSuccess) {
+        throw new Error(data.msg || data.message || `كود: ${data.code}`);
+      }
+
+      return (
+        data.data?.billCode ||
+        data.data?.waybill_code ||
+        data.waybill_code ||
+        0
+      );
     }
-    try {
-      orders.forEach(async (order) => {
-        const result = await createOrder(order);
-      });
-    } catch (err) {
-      alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+
+    for (const order of orders) {
+      orders_data[order.id] = [
+        today,
+        0,
+        order.id,
+        order.shipper,
+        order.consignee,
+        order.phone,
+        order.totalAmount,
+        order.status,
+        order.courier,
+        order.shipping_fees,
+        order.date_in,
+        order.address,
+        order.gov,
+        order.type,
+        order.description,
+        order.notes,
+      ];
+
+      try {
+        orders_data[order.id][1] = await createOrder(order);
+      } catch (err) {
+        errors.push(`#${order.id}: ${err.message}`);
+      }
     }
+
+    if (errors.length) {
+      throw new Error("فشل إنشاء بعض الطلبات:\n" + errors.join("\n"));
+    }
+
+    return Object.values(orders_data);
   }
 
-  async function loadCryptoJS() {
-    if (typeof CryptoJS === "undefined") {
-      console.log("جاري تحميل مكتبة CryptoJS...");
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("فشل تحميل مكتبة CryptoJS"));
-        document.head.appendChild(script);
-      });
-      console.log("تم تحميل مكتبة CryptoJS بنجاح!");
-    }
-  }
   function fixExistingTable() {
     if ($.fn.DataTable.isDataTable("#orders-list")) {
       var table = $("#orders-list").DataTable();

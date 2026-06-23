@@ -2,13 +2,16 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      2.9.2
+// @version      2.9.5
 // @description  Loads scripts from GitHub based on current URL
 // @icon         https://system.greenlineco.com/app-assets/images/logo/logo.png
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
+// @require      https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js
 // @connect      raw.githubusercontent.com
 // @connect      openapi.jtjms-eg.com
+// @connect      api.qpxpress.com
 // @connect      script.google.com
 // @updateURL    https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
 // @downloadURL  https://raw.githubusercontent.com/rashadAdel/tampermonkey-scripts/main/loader.user.js
@@ -24,6 +27,35 @@
   // مشاركة دالة الـ Request لنطاق الصفحة كالعادة لضمان عمل الـ Fallbacks
   if (typeof GM_xmlhttpRequest !== "undefined") {
     window.GM_xmlhttpRequest = GM_xmlhttpRequest;
+  }
+
+  function gmRequest({ method = "GET", url, headers = {}, data = undefined }) {
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method,
+        url,
+        headers,
+        data,
+        onload(response) {
+          if (response.status >= 200 && response.status < 300) {
+            resolve(response);
+          } else {
+            reject(
+              new Error(
+                `Request failed with status ${response.status}: ${response.responseText}`,
+              ),
+            );
+          }
+        },
+        onerror: reject,
+      });
+    });
+  }
+
+  function gmRequestJson(options) {
+    return gmRequest(options).then((response) =>
+      JSON.parse(response.responseText),
+    );
   }
 
   const currentURL = window.location.href;
@@ -285,22 +317,7 @@
         });
       }
 
-      async function downloadExcel(data, name) {
-        // 1. التأكد من تحميل المكتبة، وإذا لم تكن موجودة يتم تحميلها فوراً
-        if (typeof XLSX === "undefined") {
-          console.log("جاري تحميل مكتبة XLSX...");
-          await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src =
-              "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error("فشل تحميل مكتبة الإكسيل"));
-            document.head.appendChild(script);
-          });
-          console.log("تم تحميل المكتبة بنجاح!");
-        }
-
-        // 2. صناعة ملف الإكسيل وتحميله
+      function downloadExcel(data, name) {
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.aoa_to_sheet(data);
 
@@ -364,11 +381,13 @@
               $("#courierName").val(courier_id).trigger("change");
 
               //search for orders details from selectedIdss
-              const orders = await Promise.all(
-                selectedIds.map((id) => {
-                  return advance_search({ id, asJson: true });
-                }),
-              );
+              const orders = (
+                await Promise.all(
+                  selectedIds.map((id) => {
+                    return advance_search({ id, asJson: true });
+                  }),
+                )
+              ).flat();
 
               const headers = [
                 "Date_out",
@@ -402,6 +421,12 @@
                       courierName +
                       " is not implemented yet.",
                   );
+                  return;
+              }
+
+              if (!createdOrders?.length) {
+                alert("لم يتم إنشاء أي طلبات.");
+                return;
               }
 
               // استخدام الدالة الجديدة لضمان الترتيب الصحيح للتاريخ
@@ -424,61 +449,25 @@
           });
       }
 
-      // تعديل الدالة لتعمل من خلال سياق المتصفح الممرر من اللودر لتخطي CORS
       function sendToSheets(data, sheet_name) {
-        try {
-          const url =
-            "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
+        const url =
+          "https://script.google.com/macros/s/AKfycby3wfyqTc9Jhz2myh0ldkVFMRsrO5pAwi7_QEPw49B3wth4eC-QT_UqW8Mu9y5XKhUx/exec";
 
-          const httpRequester =
-            window.GM_xmlhttpRequest ||
-            (typeof GM_xmlhttpRequest !== "undefined"
-              ? GM_xmlhttpRequest
-              : null);
-
-          if (httpRequester) {
-            httpRequester({
-              method: "POST",
-              url: url,
-              headers: {
-                "Content-Type": "application/json",
-              },
-              data: JSON.stringify({ data, sheet_name }),
-              onload: function (response) {
-                if (response.status === 200 || response.status === 302) {
-                  console.log(
-                    "تم إرسال البيانات بنجاح إلى Sheets عبر GM_xmlhttpRequest:",
-                    response.responseText,
-                  );
-                } else {
-                  console.error(
-                    "فشل الإرسال لجوجل، كود الرد:",
-                    response.status,
-                  );
-                }
-              },
-              onerror: function (error) {
-                console.error("خطأ شبكة أثناء إرسال البيانات لجوجل:", error);
-              },
-            });
-          } else {
-            // Fallback في حال فشل التمرير لأي سبب
-            console.warn(
-              "GM_xmlhttpRequest غير متوفرة، جاري المحاولة بـ fetch (قد يفشل بسبب CORS)",
+        gmRequest({
+          method: "POST",
+          url,
+          headers: { "Content-Type": "application/json" },
+          data: JSON.stringify({ data, sheet_name }),
+        })
+          .then((response) => {
+            console.log(
+              "تم إرسال البيانات بنجاح إلى Sheets:",
+              response.responseText,
             );
-            fetch(url, {
-              method: "POST",
-              mode: "no-cors",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ data, sheet_name }),
-            })
-              .then(() => console.log("تم الإرسال بوضعية fallback no-cors"))
-              .catch((err) => console.error("فشل إرسال الـ fallback:", err));
-          }
-        } catch (e) {
-          console.error("خطأ غير متوقع في sendToSheets:", e);
-          return;
-        }
+          })
+          .catch((error) => {
+            console.error("فشل إرسال البيانات لجوجل:", error);
+          });
       }
 
       async function QPIntegration(orders) {
@@ -541,23 +530,15 @@
           };
 
           try {
-            const response = await fetch(
-              "https://api.qpxpress.com/api/token/",
-              {
-                method: "POST",
-                headers: {
-                  Accept: "application/json",
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(loginData),
+            const jsonResponse = await gmRequestJson({
+              method: "POST",
+              url: "https://api.qpxpress.com/api/token/",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
               },
-            );
-
-            if (!response.ok) {
-              throw new Error("فشل طلب التوكن بكود: " + response.status);
-            }
-
-            const jsonResponse = await response.json();
+              data: JSON.stringify(loginData),
+            });
             return jsonResponse.access;
           } catch (error) {
             console.error("خطأ في جلب التوكن:", error.message);
@@ -605,37 +586,30 @@
 
             const finalPayload = [mappedOrders];
 
-            const response = await fetch(
-              "https://api.qpxpress.com/addorders/uploadfile/",
-              {
-                method: "POST",
-                headers: {
-                  Accept: "application/json",
-                  "Content-Type": "application/json",
-                  Authorization: "Bearer " + accessToken,
-                },
-                body: JSON.stringify(finalPayload),
+            await gmRequestJson({
+              method: "POST",
+              url: "https://api.qpxpress.com/addorders/uploadfile/",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + accessToken,
               },
-            );
+              data: JSON.stringify(finalPayload),
+            });
 
-            if (!response.ok) {
-              throw new Error("فشل إرسال الطلبات بكود: " + response.status);
-            }
-
-            await response.json();
             const notPrintedUrl =
               "https://api.qpxpress.com/addorders/order/?rejected=0&order_serial=&full_name=&phone_number=&city=&status=&printO=False&order_date=&to_date=&page=1&page_size=1000";
 
             try {
-              const notPrintedResponse = await fetch(notPrintedUrl, {
+              const notPrintedData = await gmRequestJson({
                 method: "GET",
+                url: notPrintedUrl,
                 headers: {
                   Accept: "application/json",
                   "Content-Type": "application/json",
                   Authorization: "Bearer " + accessToken,
                 },
               });
-              const notPrintedData = await notPrintedResponse.json();
               notPrintedData.results.forEach((order) => {
                 const serial = order.serial;
                 const full_name = order.full_name;
@@ -660,8 +634,7 @@
         }
 
         try {
-          const flatOrders = orders.flat();
-          const result = await createOrders(flatOrders);
+          const result = await createOrders(orders);
           console.log("تمت العملية بنجاح:", result);
 
           window.open(
@@ -675,40 +648,91 @@
       }
 
       async function JTIntegration(orders) {
-        await loadCryptoJS();
-        const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
-        const privateKey = "2b286c37f1524f108550066791b397cd";
         const apiAccount = "937255315324284985";
-        const customerCode = "J0086009627";
+        const privateKey = "2b286c37f1524f108550066791b397cd";
+        const customerCode = "J0086024138";
+        const plainPassword = "KO6w29g2";
         const apiUrl =
           "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
+        const today = getFormattedDate();
+        const orders_data = {};
+        const errors = [];
 
-        function generateDigest(bizContent, privateKey) {
-          const jsonString = JSON.stringify(bizContent);
-          const raw = jsonString + privateKey;
+        const governoratesMap = {
+          Cairo: "قاهره",
+          Alexandria: "اسكندريه",
+          Suez: "سويس",
+          Ismailia: "اسماعيلية",
+          "Port Said": "بورسعيد",
+          Dakhalia: "دقهلية",
+          "Al Sharqia": "شرقيه",
+          Beheira: "البحيرة",
+          Damietta: "دمياط",
+          "Kafr El-Sheikh": "كفر الشيخ",
+          Qaliubia: "قليوبية",
+          Gharbeya: "غربيه",
+          Monufeya: "المنوفية",
+          Fayoum: "فيوم",
+          "Beni Swif": "بني سويف",
+          Menia: "منيا",
+          Assiut: "اسيوط",
+          Sohag: "سوهاج",
+          Qena: "قنا",
+          Luxor: "اقصر",
+          Aswan: "اسوان",
+          "North Coast": "قاهره",
+          "Marsa Matrouh": "مطروح",
+          Sinai: "قاهره",
+          Hurghada: "بحر الاحمر",
+          "Red Sea": "بحر الاحمر",
+          Giza: "جيزة",
+          Matrouh: "مطروح",
+          Monufia: "المنوفية",
+          "New Valley": "وادي جديد",
+          "South Sinai": "جنوب سيناء",
+          Gharbia: "غربيه",
+          Faiyum: "فيوم",
+          Dakahlia: "دقهلية",
+          "Beni Suef": "بني سويف",
+          Asyut: "اسيوط",
+          "6th of October": "قاهره",
+          Qalyubia: "قليوبية",
+          Minya: "منيا",
+          Helwan: "قاهره",
+        };
 
-          const md5 = CryptoJS.MD5(raw);
+        function toArabicGov(gov) {
+          return governoratesMap[gov] || gov || "قاهره";
+        }
 
-          return CryptoJS.enc.Base64.stringify(md5);
+        function generateBizDigest(code, password, key) {
+          const cipher = CryptoJS.MD5(password + "jadada236t2")
+            .toString()
+            .toUpperCase();
+          return CryptoJS.enc.Base64.stringify(
+            CryptoJS.MD5(code + cipher + key),
+          );
+        }
+
+        function generateHeaderDigest(bizContentJson, key) {
+          return CryptoJS.enc.Base64.stringify(
+            CryptoJS.MD5(bizContentJson + key),
+          );
         }
 
         async function createOrder(order) {
-          const body = {
+          const receiverGov = toArabicGov(order.gov);
+          const bizContent = {
             customerCode,
-            digest: bodyDigest,
-            txlogisticId: order.id,
-            expressType:
-              order.type === "Exchange"
-                ? "EX"
-                : order.type === "Refund"
-                  ? "DR"
-                  : "EZ",
+            digest: generateBizDigest(customerCode, plainPassword, privateKey),
+            txlogisticId: String(order.id),
+            expressType: "EZ",
             deliveryType: "04",
             goodsType: "ITN16",
             weight: "1",
-            totalQuantity: "1",
-            operateType: "1",
-            itemsValue: order.totalAmount || "0",
+            totalQuantity: 1,
+            operateType: 1,
+            itemsValue: String(order.totalAmount || "0"),
             payType: "PP_CASH",
             priceCurrency: "EGP",
             remark: order.description || "",
@@ -717,9 +741,9 @@
               mobile: "01011876569",
               phone: "01011876569",
               countryCode: "EGY",
-              prov: "Cairo",
-              city: "Cairo",
-              area: "Nasr City",
+              prov: "قاهره",
+              city: "قاهره",
+              area: "مدينة نصر",
               street: "Nasr City street",
             },
             receiver: {
@@ -727,50 +751,69 @@
               mobile: `0${order.phone}`,
               phone: `0${order.phone}`,
               countryCode: "EGY",
-              prov: order.gov || "Cairo",
-              city: order.gov || "Cairo",
-              area: order.gov || "Cairo",
-              street: "Nasr City street",
+              prov: receiverGov,
+              city: receiverGov,
+              area: receiverGov,
+              street: order.address || " ",
             },
           };
-          const HeaderDigest = generateDigest(body, privateKey);
+
+          const bizContentJson = JSON.stringify(bizContent);
           const timestamp = Date.now();
 
-          const response = await fetch(apiUrl, {
+          const data = await gmRequestJson({
             method: "POST",
+            url: apiUrl,
             headers: {
-              apiAccount,
-              digest: HeaderDigest,
-              timestamp,
+              apiAccount: String(apiAccount),
+              digest: generateHeaderDigest(bizContentJson, privateKey),
+              timestamp: String(timestamp),
+              "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: JSON.stringify(body),
+            data: `bizContent=${encodeURIComponent(bizContentJson)}`,
           });
-          return response.json();
+
+          if (data.code !== "1" && data.code !== 1) {
+            throw new Error(data.msg || `كود: ${data.code}`);
+          }
+
+          return data.data?.billCode || 0;
         }
-        try {
-          orders.forEach(async (order) => {
-            const result = await createOrder(order);
-          });
-        } catch (err) {
-          alert("لم يتم إنشاء الطلبات بسبب خطأ: " + err.message);
+
+        for (const order of orders) {
+          orders_data[order.id] = [
+            today,
+            0,
+            order.id,
+            order.shipper,
+            order.consignee,
+            order.phone,
+            order.totalAmount,
+            order.status,
+            order.courier,
+            order.shipping_fees,
+            order.date_in,
+            order.address,
+            order.gov,
+            order.type,
+            order.description,
+            order.notes,
+          ];
+
+          try {
+            orders_data[order.id][1] = await createOrder(order);
+          } catch (err) {
+            errors.push(`#${order.id}: ${err.message}`);
+          }
         }
+
+        if (errors.length) {
+          throw new Error("فشل إنشاء بعض الطلبات:\n" + errors.join("\n"));
+        }
+
+        return Object.values(orders_data);
       }
 
-      async function loadCryptoJS() {
-        if (typeof CryptoJS === "undefined") {
-          console.log("جاري تحميل مكتبة CryptoJS...");
-          await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src =
-              "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js";
-            script.onload = () => resolve();
-            script.onerror = () =>
-              reject(new Error("فشل تحميل مكتبة CryptoJS"));
-            document.head.appendChild(script);
-          });
-          console.log("تم تحميل مكتبة CryptoJS بنجاح!");
-        }
-      }
       function fixExistingTable() {
         if ($.fn.DataTable.isDataTable("#orders-list")) {
           var table = $("#orders-list").DataTable();
