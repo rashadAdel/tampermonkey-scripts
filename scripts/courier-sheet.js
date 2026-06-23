@@ -619,7 +619,7 @@
   async function JTIntegration(orders) {
     await loadCryptoJS();
     const data = [];
-    const bodyDigest = "wZjGYUAX/mIeU1ndK2k8Ew==";
+    const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
     const privateKey = "2b286c37f1524f108550066791b397cd";
     const apiAccount = "937255315324284985";
     const customerCode = "J0086009627";
@@ -659,7 +659,7 @@
           name: order.shipper,
           mobile: "01011876569",
           phone: "01011876569",
-          countryCode: "EGY",
+          countryCode: "EGP",
           prov: "Cairo",
           city: "Cairo",
           area: "Nasr City",
