@@ -651,7 +651,7 @@
         const apiAccount = "937255315324284985";
         const privateKey = "2b286c37f1524f108550066791b397cd";
         const customerCode = "J0086024138";
-        const plainPassword = "KO6w29g2";
+        const bodyDigest = "mVMfYDqwwqq9mVauAYFg7A==";
         const apiUrl =
           "https://openapi.jtjms-eg.com/webopenplatformapi/api/order/addOrder";
         const today = getFormattedDate();
@@ -705,15 +705,6 @@
           return governoratesMap[gov] || gov || "قاهره";
         }
 
-        function generateBizDigest(code, password, key) {
-          const cipher = CryptoJS.MD5(password + "jadada236t2")
-            .toString()
-            .toUpperCase();
-          return CryptoJS.enc.Base64.stringify(
-            CryptoJS.MD5(code + cipher + key),
-          );
-        }
-
         function generateHeaderDigest(bizContentJson, key) {
           return CryptoJS.enc.Base64.stringify(
             CryptoJS.MD5(bizContentJson + key),
@@ -724,9 +715,14 @@
           const receiverGov = toArabicGov(order.gov);
           const bizContent = {
             customerCode,
-            digest: generateBizDigest(customerCode, plainPassword, privateKey),
+            digest: bodyDigest,
             txlogisticId: String(order.id),
-            expressType: "EZ",
+            expressType:
+              order.type === "Exchange"
+                ? "EX"
+                : order.type === "Refund"
+                  ? "DR"
+                  : "EZ",
             deliveryType: "04",
             goodsType: "ITN16",
             weight: "1",
