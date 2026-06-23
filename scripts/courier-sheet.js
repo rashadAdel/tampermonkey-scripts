@@ -636,9 +636,58 @@
 
       return CryptoJS.enc.Base64.stringify(md5);
     }
+
+    function sendJTRequest(apiUrl, headers, body) {
+      return new Promise((resolve, reject) => {
+        const requester =
+          window.GM_xmlhttpRequest ||
+          (typeof GM_xmlhttpRequest !== "undefined" ? GM_xmlhttpRequest : null);
+
+        if (!requester) {
+          reject(new Error("GM_xmlhttpRequest not available"));
+          return;
+        }
+
+        const form = new URLSearchParams();
+        form.append("bizContent", JSON.stringify(body));
+
+        requester({
+          method: "POST",
+          url: apiUrl,
+          headers: {
+            apiAccount: headers.apiAccount,
+            digest: headers.digest,
+            timestamp: headers.timestamp,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          data: form.toString(),
+
+          onload: function (response) {
+            console.log("JT Status:", response.status);
+            console.log("JT Response:", response.responseText);
+
+            try {
+              resolve(JSON.parse(response.responseText));
+            } catch (e) {
+              resolve(response.responseText);
+            }
+          },
+
+          onerror: function (err) {
+            console.error("JT Error:", err);
+            reject(err);
+          },
+
+          ontimeout: function () {
+            reject(new Error("Request timeout"));
+          },
+        });
+      });
+    }
+
     const today = getFormattedDate();
+
     async function createOrder(order) {
-      console.log(order);
       const body = {
         customerCode,
         digest: bodyDigest,
@@ -686,20 +735,23 @@
 
       form.append("bizContent", JSON.stringify(body));
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
+      const apiResult = await sendJTRequest(
+        apiUrl,
+        {
           apiAccount,
           digest: HeaderDigest,
           timestamp: String(timestamp),
-          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: form.toString(),
-      });
+        body,
+      );
 
-      const apiResult = await response.json();
-      const text = await response.text();
-      console.log("JT RESPONSE:", text);
+      console.log("JT RESULT:", apiResult);
+
+      if (apiResult.code !== "1") {
+        throw new Error(
+          `${apiResult.code || "UNKNOWN"} - ${apiResult.msg || "Unknown error"}`,
+        );
+      }
       const billCode = apiResult?.data?.billCode || "";
       data.push([
         today,
