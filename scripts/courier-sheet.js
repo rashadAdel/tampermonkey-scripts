@@ -286,7 +286,7 @@
                     <select id="externalCourierName" class="form-control select2" style="width:100%;">
                         <option value="">Please select..</option>
                         <option value="872">QP</option>
-                        <option value="772">J and T</option>
+                        <option value="871">J and T</option>
                     </select>
                 </div>
                 <button class="col-sm-3 btn btn-outline-success btn-sm" id="sendExternalCourierBtn" type="button">Send</button>
