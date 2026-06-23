@@ -638,7 +638,7 @@
     }
     const today = getFormattedDate();
     async function createOrder(order) {
-      consonle.log(order);
+      console.log(order);
       const body = {
         customerCode,
         digest: bodyDigest,
@@ -662,7 +662,7 @@
           name: order.shipper,
           mobile: "01011876569",
           phone: "01011876569",
-          countryCode: "EGP",
+          countryCode: "EGY",
           prov: "Cairo",
           city: "Cairo",
           area: "Nasr City",
@@ -682,17 +682,24 @@
       const HeaderDigest = generateDigest(body, privateKey);
       const timestamp = Date.now();
 
+      const form = new URLSearchParams();
+
+      form.append("bizContent", JSON.stringify(body));
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           apiAccount,
           digest: HeaderDigest,
-          timestamp,
+          timestamp: String(timestamp),
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify(body),
+        body: form.toString(),
       });
 
-      const apiResult = JSON.parse(response.responseText);
+      const apiResult = await response.json();
+      const text = await response.text();
+      console.log("JT RESPONSE:", text);
       const billCode = apiResult?.data?.billCode || "";
       data.push([
         today,
