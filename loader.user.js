@@ -750,9 +750,13 @@
               prov: receiverGov,
               city: receiverGov,
               area: receiverGov,
-              street: order.address || " ",
+              street: order.address || "empty ",
             },
           };
+
+          if (order.type === "Exchange" || order.type === "Refund") {
+            bizContent.EXDR_DESCRIPTION = order.description;
+          }
 
           const bizContentJson = JSON.stringify(bizContent);
           const timestamp = Date.now();
