@@ -2,7 +2,7 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      3.0.2
+// @version      3.1.0
 // @description  Loads scripts from GitHub based on current URL
 // @icon         https://system.greenlineco.com/app-assets/images/logo/logo.png
 // @match        *://*/*
@@ -346,7 +346,8 @@
                     <div class="col-sm-6">
                         <select id="externalCourierName" class="form-control select2" style="width:100%;">
                             <option value="">Please select..</option>
-                            <option value="872">QP</option>
+                            // <option value="872">QP</option>
+                            <option value="873">QP - Kulture</option>
                             <option value="871">J and T</option>
                         </select>
                     </div>
@@ -410,8 +411,12 @@
               ];
               let createdOrders;
               switch (courierName.trim()) {
-                case "QP":
-                  createdOrders = await QPIntegration(orders);
+                case "QP - Kulture":
+                  createdOrders = await QPIntegration(
+                    orders,
+                    "elc01@qpx",
+                    "90070013",
+                  );
                   break;
                 case "J and T":
                   createdOrders = await JTIntegration(orders);
@@ -471,7 +476,7 @@
           });
       }
 
-      async function QPIntegration(orders) {
+      async function QPIntegration(orders, username, password) {
         const governoratesMap = {
           Cairo: "قاهره",
           Alexandria: "اسكندريه",
@@ -526,8 +531,8 @@
 
         async function getAccessToken() {
           const loginData = {
-            username: "elc01@qpx",
-            password: "90070013",
+            username,
+            password,
           };
 
           try {
