@@ -2,7 +2,7 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      3.1.1
+// @version      3.1.2
 // @description  Loads scripts from GitHub based on current URL
 // @icon         https://system.greenlineco.com/app-assets/images/logo/logo.png
 // @match        *://*/*
@@ -415,6 +415,7 @@
                     orders,
                     "elc01@qpx",
                     "90070013",
+                    "13394",
                   );
                   break;
                 case "J and T":
@@ -475,7 +476,7 @@
           });
       }
 
-      async function QPIntegration(orders, username, password) {
+      async function QPIntegration(orders, username, password, customer) {
         const governoratesMap = {
           Cairo: "قاهره",
           Alexandria: "اسكندريه",
@@ -585,7 +586,7 @@
                 address: order.address || " ",
                 notes: order.type == "Exchange" ? "طرد مقابل طرد" : "",
                 referenceID: order.id,
-                customer: 13187,
+                customer,
               };
             });
 
