@@ -2,7 +2,7 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.0.1
 // @description  Loads scripts from GitHub based on current URL
 // @icon         https://system.greenlineco.com/app-assets/images/logo/logo.png
 // @match        *://*/*
