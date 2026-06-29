@@ -2,7 +2,7 @@
 // @name         Greenline Script Loader
 // @author       Rashad Adel
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
+// @version      3.1.1
 // @description  Loads scripts from GitHub based on current URL
 // @icon         https://system.greenlineco.com/app-assets/images/logo/logo.png
 // @match        *://*/*
@@ -346,7 +346,6 @@
                     <div class="col-sm-6">
                         <select id="externalCourierName" class="form-control select2" style="width:100%;">
                             <option value="">Please select..</option>
-                            // <option value="872">QP</option>
                             <option value="873">QP - Kulture</option>
                             <option value="871">J and T</option>
                         </select>
