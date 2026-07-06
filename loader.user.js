@@ -579,7 +579,7 @@
               ];
               return {
                 shipment_contents: order.description || "No description",
-                full_name: `${order.consignee} - #${order.id} - ${order.shipper}`,
+                full_name: `${order.consignee} - #${order.id} - ${("" + order.shipper).toUpperCase().slice(0, 3)}`,
                 phone: `0${order.phone}`,
                 total_amount: order.totalAmount || "0",
                 city: governoratesMap[order.gov] || "قاهره",
