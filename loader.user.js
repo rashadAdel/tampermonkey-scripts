@@ -413,9 +413,9 @@
                 case "QP - Kulture":
                   createdOrders = await QPIntegration(
                     orders,
-                    "elc01@qpx",
-                    "90070013",
-                    "13394",
+                    "brstvs@qpx",
+                    "88066611",
+                    "13487",
                   );
                   break;
                 case "J and T":
