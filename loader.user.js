@@ -827,6 +827,38 @@
         // ==========================================
         async function createOrder(order) {
           const receiverGov = toArabicGov(order.gov);
+
+          // 1. إعداد بيانات الراسل الأصلية
+          let senderData = {
+            name: order.shipper,
+            mobile: "01011876569",
+            phone: "01011876569",
+            countryCode: "EGY",
+            prov: "قاهره",
+            city: "قاهره",
+            area: "مدينة نصر",
+            street: "Nasr City street",
+          };
+
+          // 2. إعداد بيانات المرسل إليه الأصلية
+          let receiverData = {
+            name: order.consignee,
+            mobile: `0${order.phone}`,
+            phone: `0${order.phone}`,
+            countryCode: "EGY",
+            prov: receiverGov,
+            city: receiverGov,
+            area: receiverGov,
+            street: order.address || "empty ",
+          };
+
+          // 3. لو الأوردر Refund، شقلب الراسل والمرسل إليه
+          if (order.type === "Refund") {
+            const temp = senderData;
+            senderData = receiverData;
+            receiverData = temp;
+          }
+
           const bizContent = {
             customerCode,
             digest: bodyDigest,
@@ -847,26 +879,8 @@
             payType: "PP_CASH",
             priceCurrency: "EGP",
             remark: order.description || "",
-            sender: {
-              name: order.shipper,
-              mobile: "01011876569",
-              phone: "01011876569",
-              countryCode: "EGY",
-              prov: "قاهره",
-              city: "قاهره",
-              area: "مدينة نصر",
-              street: "Nasr City street",
-            },
-            receiver: {
-              name: order.consignee,
-              mobile: `0${order.phone}`,
-              phone: `0${order.phone}`,
-              countryCode: "EGY",
-              prov: receiverGov,
-              city: receiverGov,
-              area: receiverGov,
-              street: order.address || "empty ",
-            },
+            sender: senderData,
+            receiver: receiverData,
           };
 
           if (order.type === "Exchange" || order.type === "Refund") {
